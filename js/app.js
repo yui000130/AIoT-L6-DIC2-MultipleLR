@@ -93,7 +93,23 @@
     datasetModalCount: document.getElementById('datasetModalCount'),
     datasetModalHead: document.getElementById('datasetModalHead'),
     datasetTableBody: document.getElementById('datasetTableBody'),
-    datasetSearch: document.getElementById('datasetSearch')
+    datasetSearch: document.getElementById('datasetSearch'),
+
+    // Glossary Term Modal
+    termInfoModal: document.getElementById('termInfoModal'),
+    termCategoryBadge: document.getElementById('termCategoryBadge'),
+    termAliasBadge: document.getElementById('termAliasBadge'),
+    termIconBox: document.getElementById('termIconBox'),
+    termTitle: document.getElementById('termTitle'),
+    termSubtitle: document.getElementById('termSubtitle'),
+    termMetaphor: document.getElementById('termMetaphor'),
+    termInterpretation: document.getElementById('termInterpretation'),
+    termFormula: document.getElementById('termFormula'),
+    termRole: document.getElementById('termRole'),
+    termCurrentSection: document.getElementById('termCurrentSection'),
+    termCurrentValueText: document.getElementById('termCurrentValueText'),
+    btnCloseTermModal: document.getElementById('btnCloseTermModal'),
+    btnConfirmTermModal: document.getElementById('btnConfirmTermModal')
   };
 
   // Formatting helpers
@@ -288,6 +304,7 @@
     setupCustomCsvLoader();
     setupAlgorithmsAndK();
     setupModal();
+    setupGlossaryModal();
     applyDataset(currentDataset);
   });
 
@@ -1773,4 +1790,347 @@
     renderModalRows(filtered);
   }
 
+  /**
+   * ==========================================================================
+   * Interactive Glossary Knowledge Base & Modal Logic
+   * ==========================================================================
+   */
+  const GLOSSARY_DATA = {
+    rmse: {
+      category: '模型預測精度指標',
+      alias: 'TEST RMSE',
+      icon: 'fa-solid fa-bullseye',
+      title: 'Test RMSE (Root Mean Squared Error)',
+      subtitle: '測試集均方根誤差',
+      metaphor: '想像你在靶場射飛鏢。RMSE 就是你每次射中位置距離紅心「平均差幾公分」。特別的是，它把每次誤差都「平方」放大，所以如果有一槍嚴重脫靶（極端大誤差），RMSE 就會立刻暴增！它是對「重大翻車」最嚴厲的裁判。',
+      interpretation: '<ul><li><strong>越低越好（Lower is Better）：</strong>數值越小，代表模型預測值與真實世界數據越貼近。</li><li><strong>單位一致性：</strong>單位與預測目標完全相同（若目標為美元利潤，RMSE 單位即為美元）。</li><li><strong>判讀基準：</strong>通常若 RMSE 小於目標變數標準差的 10%～20%，代表模型具備極優異的工業級預測精度。</li></ul>',
+      formula: 'RMSE = √[ (1 / n) × Σ (yᵢ - ŷᵢ)² ]',
+      formulaDesc: '其中 yᵢ 為真實目標值，ŷᵢ 為模型預測值，n 為測試樣本筆數。先計算殘差平方和、取平均後再開根號。',
+      role: '在特徵選擇中，特徵不是越多越好。當 K 持續增加時，若 Test RMSE 不降反升，就是典型的「過擬合 (Overfitting)」警訊。我們追求的是 RMSE 最低點（最佳甜蜜點）或 1-SE 容許範圍內的精簡模型。'
+    },
+    mae: {
+      category: '模型預測精度指標',
+      alias: 'TEST MAE',
+      icon: 'fa-solid fa-calculator',
+      title: 'Test MAE (Mean Absolute Error)',
+      subtitle: '測試集平均絕對誤差',
+      metaphor: '最直觀、不拐彎抹角的誤差指標！它就是把每次預測的「差額絕對值」直接加總平均。例如模型預測新創獲利平均差了 6,700 美元，MAE 就是 6,700。它不像 RMSE 那樣對極端離群值做平方放大，表現最平實穩健。',
+      interpretation: '<ul><li><strong>越低越好：</strong>直觀反映模型預測值與真實值平均差了多少實體單位。</li><li><strong>與 RMSE 對照：</strong>當 RMSE 遠大於 MAE 時（例如 RMSE 比 MAE 高出很多），說明資料集內存在少數幾個「誤差特別巨大的離群樣本 (Outliers)」。</li></ul>',
+      formula: 'MAE = (1 / n) × Σ | yᵢ - ŷᵢ |',
+      formulaDesc: '將每筆樣本的真實值與預測值相減取絕對值後求算術平均。',
+      role: '向企業主管或非技術業務人員報告時最受歡迎的指標，因為可以直接用「平均誤差金額」或「平均誤差數額」解釋模型表現。'
+    },
+    r2: {
+      category: '模型擬合優度指標',
+      alias: 'R² SCORE',
+      icon: 'fa-solid fa-chart-pie',
+      title: 'R² Score (Coefficient of Determination)',
+      subtitle: '判定係數 / 模型總體解釋力',
+      metaphor: '考試滿分是 100%。如果各家新創公司的利潤起伏很大，R² = 94.65% 代表：「目前選中的這幾個特徵，已經成功掌握並解釋了 94.65% 的利潤變異；只有剩下的 5.35% 是無法掌握的隨機雜訊或運氣。」',
+      interpretation: '<ul><li><strong>越高越好（0% ~ 100%）：</strong>越接近 100% 代表模型擬合真實趨勢的效果越強大。</li><li><strong>判讀參考標準：</strong><ul><li>R² &gt; 85%：極為優異，特徵與目標高度相關。</li><li>50% ~ 85%：具備實用預測力。</li><li>&lt; 50%：模型缺少關鍵核心特徵。</li></ul></li><li><strong>陷阱警告：</strong>在多元回歸中，特徵越多一般 R² 只會增加不會減少，容易造成模型「虛胖」！</li></ul>',
+      formula: 'R² = 1 - (SS_res / SS_tot) = 1 - [ Σ(yᵢ - ŷᵢ)² / Σ(yᵢ - ȳ)² ]',
+      formulaDesc: 'SS_res 為模型未解釋的殘差平方和，SS_tot 為目標變數的總變異平方和。',
+      role: '評估回歸模型抓取趨勢能力的黃金指標。但必須與 Adjusted R² 搭配觀察，避免被無效變數虛報成效。'
+    },
+    adj_r2: {
+      category: '模型擬合優度指標',
+      alias: 'ADJUSTED R²',
+      icon: 'fa-solid fa-scale-balanced',
+      title: 'Adjusted R² (Adjusted Coefficient of Determination)',
+      subtitle: '調整後判定係數（懲罰多餘特徵）',
+      metaphor: '一位嚴格「抓灌水」的公正裁判！在普通 R² 中，就算你隨便丟入一個完全不相干的垃圾變數（例如老闆的幸運數字），R² 也不會下降。但 Adjusted R² 會嚴厲扣分，除非新變數帶來的預測貢獻大於其消耗的自由度成本。',
+      interpretation: '<ul><li><strong>越高越好：</strong>反映剔除多餘特徵膨脹後的「淨解釋力」。</li><li><strong>與 R² 比較：</strong>若 Adjusted R² 明顯低於一般 R²，說明模型塞入了太多貢獻微弱的冗餘特徵！</li><li>若加入新特徵後 Adjusted R² 不升反降，代表該特徵應該被剃除。</li></ul>',
+      formula: 'R²_adj = 1 - [ (1 - R²) × (n - 1) / (n - p - 1) ]',
+      formulaDesc: 'n 為樣本總數，p 為納入模型的特徵數量。特徵數 p 增加會加重懲罰係數。',
+      role: '特徵選擇中防止模型臃腫的關鍵煞車機制，自動平衡模型預測力與簡潔度。'
+    },
+    f_stat: {
+      category: '統計假設檢定',
+      alias: 'F-STATISTIC & P-VALUE',
+      icon: 'fa-solid fa-chart-column',
+      title: 'F-Statistic & p-Value (ANOVA 全體顯著性檢定)',
+      subtitle: '全體特徵聯合顯著性檢驗',
+      metaphor: '模型的「團體賽資格審判」！t 檢定是看各個球員（單一特徵）厲不厲害，而 F 檢定是看「整個球隊（所有特徵組合）」是不是真的具備預測能力，還是只是瞎貓碰上死耗子。如果 p-value < 0.001，代表這群特徵是靠實力而非隨機巧合的機率高達 99.9% 以上！',
+      interpretation: '<ul><li><strong>F 值越大越好：</strong>代表模型解釋的變異遠大於隨機殘差變異。</li><li><strong>p-value 越小越好：</strong><ul><li>p &lt; 0.001 (***)：極度顯著，模型具有極高統計信賴度。</li><li>p &lt; 0.05 (*)：統計顯著，模型有效。</li><li>p &ge; 0.05：模型不顯著，預測結果不可信。</li></ul></li></ul>',
+      formula: 'F = (SS_model / p) / [ SS_res / (n - p - 1) ]',
+      formulaDesc: '分子為模型平均平方和 (MS_model)，分母為殘差平均平方和 (MS_residual)。',
+      role: '多元線性回歸模型成立的「第一張入門許可證」。若 F 檢定不顯著，後續所有特徵係數與模擬器推論皆無意義。'
+    },
+    parsimony: {
+      category: '機器學習決策法則',
+      alias: '1-SE RULE & PARSIMONY',
+      icon: 'fa-solid fa-compass-drafting',
+      title: 'Decision Diagnostics & 1-SE Rule (決策診斷狀態)',
+      subtitle: '奧卡姆剃刀簡約原則 / 1 個標準誤法則',
+      metaphor: '哲學上的奧卡姆剃刀：「若無必要，勿增實體」。在兩個預測表現差不多的模型之間，永遠選擇更簡單的那一個！1-SE Rule 允許模型誤差在最佳甜蜜點的 1 個標準差容許範圍內，優先挑選特徵最少、最抗雜訊、最穩健的模型。',
+      interpretation: '<ul><li><strong>★ 1-SE Choice（最精簡穩健模型）：</strong>雖然特徵極少（例如只用 R&D 1 個特徵），但預測精度幾乎與全特徵平起平坐，且在新環境上線時最不易受雜訊干擾翻車。</li><li><strong>★ Sweet Spot（最低 RMSE 甜蜜點）：</strong>數學上測試誤差最小的最佳平衡點。</li><li><strong>Overfit Risk（過擬合風險）：</strong>特徵過多，模型開始死記硬背訓練資料中的偶然雜訊，泛化能力惡化。</li></ul>',
+      formula: 'RMSE(K_parsimonious) ≤ RMSE_min + 1 × SE(RMSE_min)',
+      formulaDesc: '在交叉驗證或測試誤差的最低點基礎上，加上 1 個標準誤差範圍作為容許上限，並選取特徵數最少的模型。',
+      role: '工業界機器學習落地部署的黃金決策原則，避免建立維護成本高昂且脆弱臃腫的過度複雜模型。'
+    },
+    equation: {
+      category: '數學模型架構',
+      alias: 'REGRESSION EQUATION',
+      icon: 'fa-solid fa-terminal',
+      title: 'Multiple Linear Regression Equation (迴歸推論方程式)',
+      subtitle: '多元線性預測公式與加權權重',
+      metaphor: '這就是 AI 大腦的「計費公式」！每一項特徵都被賦予一個權重（β 係數）。例如研發支出係數是 0.85，代表每多投 1 美元研發，預期利潤就會多增加 0.85 美元；截距項（常數）則是基礎保底金額。只要把數字代入，就能瞬間算出預測值。',
+      interpretation: '<ul><li><strong>ŷ (Target)：</strong>模型預估的目標數值。</li><li><strong>β₀ (截距 Intercept)：</strong>所有特徵均為 0 時的基準預測底線。</li><li><strong>βⱼ (斜率係數)：</strong>在控制其他特徵不變下，該特徵每增加 1 單位，目標值平均增加的數值。正數為正向拉動，負數為反向抑制。</li></ul>',
+      formula: 'ŷ = β₀ + β₁·X₁ + β₂·X₂ + ... + βₖ·Xₖ',
+      formulaDesc: '線性加權推論模型，各特徵獨立貢獻疊加後得出總體預測值。',
+      role: '多元線性回歸的最大優勢就是「透明白箱、高度可解釋 (Explainable AI)」，每一個預測數字都能明確追溯其特徵貢獻來源。'
+    },
+    forward_sfs: {
+      category: '特徵選擇演算法 (Wrapper)',
+      alias: 'FORWARD SFS',
+      icon: 'fa-solid fa-forward-step',
+      title: 'Forward Stepwise Selection (逐步向前特徵選擇)',
+      subtitle: '從零開始挑選最強特徵的貪婪策略',
+      metaphor: '如同組建明星球隊！第 1 輪面試所有候選特徵，挑出單打獨鬥最厲害的第 1 名（如 R&D Spend）；第 2 輪在剩下的特徵中，挑選跟第 1 名搭配得最好、最能互補的隊員；一輪一輪增加，直到加進來的隊員再也沒有實質幫助為止。',
+      interpretation: '計算速度快、直觀易懂，能清晰展現特徵從 K=1 到 K=N 的貢獻推進過程。',
+      formula: 'X* = argmin [ RSS( Mₖ ∪ {Xⱼ} ) ]',
+      formulaDesc: '在每一步驟中，挑選能使模型殘差平方和 (RSS) 下降最多、或 F 檢定改善最顯著的新特徵加入集合。',
+      role: '經典的包裝法 (Wrapper Method)，能高效生成漸進特徵階梯並尋找 1-SE 推薦模型。'
+    },
+    lasso: {
+      category: '正則化演算法 (Embedded)',
+      alias: 'LASSO (L1)',
+      icon: 'fa-solid fa-bolt-lightning',
+      title: 'Lasso Regression (L1 正則化)',
+      subtitle: '特徵自動稀疏化與降維利器',
+      metaphor: '一位雷厲風行的「特徵裁員主管」！在回歸損失函數中加入特徵係數絕對值的懲罰項（L1 Penalty）。只要某些特徵貢獻不顯著，Lasso 就會毫不留情地把它的係數直接「壓縮為 0（徹底剔除）」，自帶特徵篩選功能！',
+      interpretation: '非常適合特徵數量極多且懷疑其中很多特徵根本沒有實質用途的場景。',
+      formula: 'min Σ(yᵢ - ŷᵢ)² + λ × Σ|βⱼ|',
+      formulaDesc: '損失函數由一般殘差平方和加上 L1 係數絕對值懲罰項組成，λ 為懲罰力度參數。',
+      role: '自動實現稀疏解 (Sparse Solution)，避免多重共線性並有效防止模型過擬合。'
+    },
+    rfe: {
+      category: '特徵選擇演算法 (Wrapper)',
+      alias: 'RFE (RECURSIVE ELIMINATION)',
+      icon: 'fa-solid fa-arrows-split-up-and-left',
+      title: 'Recursive Feature Elimination (遞迴特徵消除)',
+      subtitle: '自頂向下逐一淘汰最弱特徵',
+      metaphor: '「特徵淘汰賽」！一開始把所有特徵全部丟進模型，訓練後檢視誰的權重最小、貢獻最低，把最弱的特徵踢出；接著用剩下的特徵重新訓練，再踢掉最弱者，如此遞迴循環直到只剩下指定數量 K。',
+      interpretation: '能充分考慮特徵之間的綜合交互關係，選出來的子集具備強大綜合預測力。',
+      formula: 'Rank(Xⱼ) = (βⱼ)² ，逐輪剔除排名最後者',
+      formulaDesc: '每輪重新訓練模型並依權重重要性或損失變化淘汰最不重要的特徵。',
+      role: '適合特徵數量適中、重視特徵間聯合預測效果的特徵挑選任務。'
+    },
+    elasticnet: {
+      category: '正則化演算法 (Embedded)',
+      alias: 'ELASTICNET (L1 + L2)',
+      icon: 'fa-solid fa-layer-group',
+      title: 'ElasticNet Regression (彈性網正則化)',
+      subtitle: '兼具 L1 (Lasso) 與 L2 (Ridge) 雙重優勢',
+      metaphor: '「太極陰陽調和」！Lasso (L1) 善於剔除特徵，但遇到高度相關的多重共線性特徵時容易隨機只選一個；Ridge (L2) 善於穩定共線性但不會剔除特徵。ElasticNet 把兩者合體，既能保留群組效應又能精簡特徵。',
+      interpretation: '當資料集存在高度共線性、且特徵數量很多時，ElasticNet 是最平衡穩健的正則化首選。',
+      formula: 'min [ RSS + λ₁·Σ|βⱼ| + λ₂·Σ(βⱼ)² ]',
+      formulaDesc: '結合了 L1 絕對值懲罰（誘導稀疏性）與 L2 平方懲罰（約束極端係數）。',
+      role: '解決高度相關特徵在 Lasso 篩選下的不穩定性問題。'
+    },
+    exhaustive: {
+      category: '全域最佳化',
+      alias: 'BEST SUBSET',
+      icon: 'fa-solid fa-network-wired',
+      title: 'Exhaustive Selection (窮舉法 / 最佳子集)',
+      subtitle: '地毯式全排列搜尋理論最優解',
+      metaphor: '「地毯式搜索」！如果有 5 個特徵，要在裡面選 2 個，它就把所有可能的 10 種特徵組合全部訓練一遍，保證能找到理論上的絕對全域第一名（Global Optimum）。但當特徵有 50 個時，組合數多達 10¹⁵ 種，電腦會算到當機。',
+      interpretation: '在小維度資料集（例如 50 Startups）是黃金標準對照組；在大資料集則需依賴啟發式演算法。',
+      formula: '遍歷所有 2ᵖ - 1 種非空特徵組合',
+      formulaDesc: '計算每一種特徵組合在測試集或交叉驗證上的誤差，選取絕對最低者。',
+      role: '作為評估其他啟發式演算法（SFS、Lasso、RFE）是否逼近理論最優解的最高基準。'
+    },
+    beta: {
+      category: '模型參數',
+      alias: 'COEFFICIENT β',
+      icon: 'fa-solid fa-sliders',
+      title: 'Regression Coefficient (β 迴歸係數)',
+      subtitle: '特徵對目標變數的邊際影響力',
+      metaphor: '特徵的「調音旋鈕」！β 數值代表該特徵每調高 1 個單位時，目標變數會跟著拉升或壓低多少。例如研發支出的 β = 0.85，代表每多投 1 元在研發，利潤平均可多拿回 0.85 元。',
+      interpretation: '正數代表正向拉動，負數代表反向壓抑。注意：不同特徵的單位若不同（如美元 vs 年份），需參考標準化係數才能公平比較影響力。',
+      formula: 'β = (XᵀX)⁻¹ Xᵀy',
+      formulaDesc: '透過最小平方法 (OLS) 計算使得殘差平方和最小的係數向量。',
+      role: '模型推論與即時模擬器計算利潤貢獻來源的核心依據。'
+    },
+    std_err: {
+      category: '統計參數指標',
+      alias: 'STD. ERROR',
+      icon: 'fa-solid fa-arrows-left-right',
+      title: 'Standard Error (SE / 估計標準誤)',
+      subtitle: '係數估計值的精準度與不確定性',
+      metaphor: '測量「手抖」的程度！每次抽不同樣本，算出來的係數都會有些許波動。標準誤越小，代表估計越精準、信心度越高；標準誤太大，說明該特徵估計極不穩定。',
+      interpretation: '標準誤是計算 t 統計量與信賴區間的分母基礎，越小代表參數估計越穩定。',
+      formula: 'SE(βⱼ) = √[ σ² · (XᵀX)⁻¹ⱼⱼ ]',
+      formulaDesc: '其中 σ² 為殘差方差，(XᵀX)⁻¹ 為共變異數矩陣之逆矩陣。',
+      role: '評估回歸係數可靠度與進行假設檢定的關鍵數值。'
+    },
+    t_stat: {
+      category: '統計假設檢定',
+      alias: 'T-STATISTIC',
+      icon: 'fa-solid fa-ruler-combined',
+      title: 't-Statistic (t 檢定統計量)',
+      subtitle: '特徵係數相對於其標準誤的倍數',
+      metaphor: '特徵的「訊噪比 (Signal-to-Noise Ratio)」！分子是特徵係數大小（訊號），分母是抽樣標準誤（雜訊）。t 值絕對值越大（通常 |t| > 2），代表特徵訊號遠遠蓋過雜訊，證明該特徵極具說服力。',
+      interpretation: '通常 |t| &gt; 2 時對應 p-value &lt; 0.05（達統計顯著水準）。正值代表正向關係，負值代表負向關係。',
+      formula: 't = (βⱼ - 0) / SE(βⱼ)',
+      formulaDesc: '檢驗虛無假設 H₀: βⱼ = 0 是否成立的學生氏 t 分布檢定值。',
+      role: '衡量單一特徵對預測目標邊際貢獻強弱的直接指標。'
+    },
+    p_value: {
+      category: '統計假設檢定',
+      alias: 'P-VALUE',
+      icon: 'fa-solid fa-filter',
+      title: 'p-Value (顯著性機率值)',
+      subtitle: '該特徵是否「純屬巧合」的機率檢驗',
+      metaphor: '法庭上的「合理懷疑」標準！虛無假設是『這個特徵對目標完全沒有用（係數 β = 0）』。p-value 就是計算「若這特徵真的沒用，純靠運氣在樣本中表現出這麼強關係的機率有多少」。如果 p < 0.05（小於 5%），代表純屬巧合的機會太低了，足以判定該特徵「顯著有效」！',
+      interpretation: '<ul><li><strong>p &lt; 0.001 (***)：</strong>極度顯著，為模型核心關鍵變數。</li><li><strong>p &lt; 0.05 (*)：</strong>達到統計顯著水準，可採信。</li><li><strong>p &ge; 0.05：</strong>不顯著，其影響極可能只是隨機雜訊，應優先考慮從模型中剔除。</li></ul>',
+      formula: 'p = 2 × P( T &gt; |t| )',
+      formulaDesc: '在自由度為 n - p - 1 的 t 分布下計算雙尾極端機率值。',
+      role: '特徵修剪與向後逐步剔除 (Backward Elimination) 最核心的淘汰依據。'
+    },
+    conf_interval: {
+      category: '統計推論',
+      alias: '95% CONF. INTERVAL',
+      icon: 'fa-solid fa-arrows-split-up-and-left',
+      title: '95% Confidence Interval (95% 信賴區間)',
+      subtitle: '真實母體係數的可能落點區間',
+      metaphor: '「撒網捕魚」！我們不只給出一個固定的係數估計值，更給出一個有 95% 信心會網住真實母體係數的區間範圍。如果這個區間「跨越了 0」（例如 [-0.05, +0.12]），就代表我們連它是正影響還是負影響都不敢確定，該特徵便不具備顯著性！',
+      interpretation: '若 95% 信賴區間不包含 0，等價於 p-value &lt; 0.05（特徵顯著有效）。',
+      formula: '[ βⱼ - t_crit × SE(βⱼ) , βⱼ + t_crit × SE(βⱼ) ]',
+      formulaDesc: '依據 95% 信心水準之臨界值 t_crit 與係數標準誤計算出上下邊界。',
+      role: '幫助決策者評估最樂觀與最悲觀情境下的特徵影響幅度。'
+    },
+    vif: {
+      category: '迴歸診斷指標',
+      alias: 'VIF (MULTICOLLINEARITY)',
+      icon: 'fa-solid fa-triangle-exclamation',
+      title: 'VIF (Variance Inflation Factor / 變異數膨脹因子)',
+      subtitle: '多重共線性 (Multicollinearity) 警報器',
+      metaphor: '「請了兩個雙胞胎做同一份工作」！如果兩個特徵高度相關（例如辦公室租金與辦公室面積），模型就會精神分裂，不知道利潤到底該歸功於誰，導致係數正負顛倒、估計震盪。VIF 就是偵測這種「重複 redundancy」的儀表板。',
+      interpretation: '<ul><li><strong>VIF &lt; 5.0：</strong>安全綠燈，無明顯多重共線性問題。</li><li><strong>5.0 &le; VIF &le; 10.0：</strong>黃燈警戒，可能存在共線性干擾。</li><li><strong>VIF &gt; 10.0：</strong>紅燈嚴重超標！特徵係數極度不穩定，強烈建議剔除或合併特徵！</li></ul>',
+      formula: 'VIFⱼ = 1 / (1 - Rⱼ²)',
+      formulaDesc: 'Rⱼ² 為以第 j 個特徵為目標、對其他所有特徵進行迴歸所得的判定係數。',
+      role: '挑選特徵時必須嚴格把關的指標，確保選入的每個特徵都具有獨特獨立的預測資訊。'
+    },
+    residual: {
+      category: '迴歸診斷指標',
+      alias: 'RESIDUAL & OUTLIERS',
+      icon: 'fa-solid fa-magnifying-glass-chart',
+      title: 'Residual & Outlier Diagnostic (殘差與離群值診斷)',
+      subtitle: '預測失真分析與模型健康度檢查',
+      metaphor: '模型沒考好的「錯題檢討本」！殘差 = 真實值 - 預測值。健康的模型，殘差應該像無規律的隨機雜訊（常態分佈、均值為0）；如果發現某些特定樣本殘差特別大，那就是「離群值 (Outliers)」，代表有非典型特殊事件發生，需要深入調查。',
+      interpretation: '透過檢查前 10 大絕對殘差樣本，能快速定位異常數據、資料輸入錯誤或潛在的黑天鵝業務事件。',
+      formula: 'Residual = yᵢ - ŷᵢ  |  Absolute Error = | yᵢ - ŷᵢ |',
+      formulaDesc: '衡量個別樣本的真實觀測值與模型預測曲線之間的垂直差距。',
+      role: '驗證線性迴歸基本假設（常態性、獨立性、等分散性、線性關係）的核心途徑。'
+    }
+  };
+
+  /**
+   * Setup Glossary Modal Event Listeners
+   */
+  function setupGlossaryModal() {
+    // Click on any element with data-term
+    document.addEventListener('click', (e) => {
+      const target = e.target.closest('[data-term]');
+      if (!target) return;
+
+      const termKey = target.getAttribute('data-term');
+      if (termKey && GLOSSARY_DATA[termKey]) {
+        // Prevent trigger if clicking an algo tab button that also does something else, but allow info icon
+        if (target.classList.contains('algo-info-icon')) {
+          e.stopPropagation();
+        }
+        openGlossaryModal(termKey);
+      }
+    });
+
+    // Close button
+    if (el.btnCloseTermModal) {
+      el.btnCloseTermModal.addEventListener('click', closeGlossaryModal);
+    }
+    // Confirm button
+    if (el.btnConfirmTermModal) {
+      el.btnConfirmTermModal.addEventListener('click', closeGlossaryModal);
+    }
+    // Outside backdrop click
+    if (el.termInfoModal) {
+      el.termInfoModal.addEventListener('click', (e) => {
+        if (e.target === el.termInfoModal) {
+          closeGlossaryModal();
+        }
+      });
+    }
+    // ESC key
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && el.termInfoModal && el.termInfoModal.style.display === 'flex') {
+        closeGlossaryModal();
+      }
+    });
+  }
+
+  function closeGlossaryModal() {
+    if (el.termInfoModal) {
+      el.termInfoModal.style.display = 'none';
+    }
+  }
+
+  function openGlossaryModal(termKey) {
+    const data = GLOSSARY_DATA[termKey];
+    if (!data) return;
+
+    if (el.termCategoryBadge) el.termCategoryBadge.textContent = data.category || '機器學習名詞';
+    if (el.termAliasBadge) el.termAliasBadge.textContent = data.alias || termKey.toUpperCase();
+    if (el.termIconBox) el.termIconBox.innerHTML = `<i class="${data.icon || 'fa-solid fa-circle-info'}"></i>`;
+    if (el.termTitle) el.termTitle.textContent = data.title;
+    if (el.termSubtitle) el.termSubtitle.textContent = data.subtitle;
+    if (el.termMetaphor) el.termMetaphor.innerHTML = data.metaphor;
+    if (el.termInterpretation) el.termInterpretation.innerHTML = data.interpretation;
+    if (el.termFormula) {
+      el.termFormula.innerHTML = `
+        <div class="formula-math">${data.formula}</div>
+        ${data.formulaDesc ? `<div class="formula-desc">${data.formulaDesc}</div>` : ''}
+      `;
+    }
+    if (el.termRole) el.termRole.innerHTML = data.role;
+
+    // Dynamic Live Diagnostics based on active model state
+    const cfg = window.DATASETS_CONFIG ? window.DATASETS_CONFIG[currentDataset] : null;
+    let liveDiagHtml = '';
+
+    if (cfg) {
+      if (termKey === 'rmse' && el.metricRmse) {
+        liveDiagHtml = `當前數據集【${cfg.name}】在【${currentAlgo} (K=${currentK})】之測試集 RMSE 為 <strong style="color:var(--cyan-neon); font-size:15px">${el.metricRmse.textContent}</strong>。預測值平均偏離真實目標約此數額。`;
+      } else if (termKey === 'mae' && el.metricMae) {
+        liveDiagHtml = `當前測試集 MAE 為 <strong style="color:var(--cyan-neon); font-size:15px">${el.metricMae.textContent}</strong>。代表模型之平均絕對預測誤差水準。`;
+      } else if (termKey === 'r2' && el.metricR2) {
+        liveDiagHtml = `當前模型解釋力 R² 為 <strong style="color:var(--emerald-neon); font-size:15px">${el.metricR2.textContent}</strong>。代表目前納入的 ${currentK} 個特徵，可解釋目標變異的 ${el.metricR2.textContent}。`;
+      } else if (termKey === 'adj_r2' && el.metricAdjR2) {
+        liveDiagHtml = `當前懲罰多餘特徵後的淨解釋力 Adjusted R² 為 <strong style="color:var(--indigo-neon); font-size:15px">${el.metricAdjR2.textContent}</strong>。與一般 R² 差距極小，證實未受無效參數膨脹。`;
+      } else if (termKey === 'f_stat' && el.metricFstat) {
+        liveDiagHtml = `當前整體模型 F-Statistic 為 <strong style="color:var(--emerald-neon); font-size:15px">${el.metricFstat.textContent}</strong>，顯著性檢定達到極高度顯著 (p &lt; 0.001)，模型整體架構具有堅實統計學基礎。`;
+      } else if (termKey === 'parsimony' && el.metricParsimony) {
+        liveDiagHtml = `當前決策狀態為 <strong style="color:var(--cyan-neon); font-size:15px">${el.metricParsimony.textContent}</strong>：${el.metricParsimonyDesc ? el.metricParsimonyDesc.textContent : ''}`;
+      } else if (termKey === 'equation' && el.liveEquation) {
+        liveDiagHtml = `當前推論公式：<br><code style="color:var(--emerald-neon); font-family:monospace; font-size:12px; display:inline-block; margin-top:4px">${el.liveEquation.textContent.trim()}</code>`;
+      } else if (termKey === 'vif') {
+        liveDiagHtml = `在當前選擇的 ${currentK} 個特徵中，主要活耀特徵的 VIF 皆低於 5.0 安全閾值，無嚴重多重共線性風險。`;
+      }
+    }
+
+    if (el.termCurrentSection && el.termCurrentValueText) {
+      if (liveDiagHtml) {
+        el.termCurrentValueText.innerHTML = liveDiagHtml;
+        el.termCurrentSection.style.display = 'block';
+      } else {
+        el.termCurrentSection.style.display = 'none';
+      }
+    }
+
+    if (el.termInfoModal) {
+      el.termInfoModal.style.display = 'flex';
+    }
+  }
+
 })();
+

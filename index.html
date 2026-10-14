@@ -214,35 +214,45 @@
 
     <!-- Controls HUD: Algorithm & K Selectors -->
     <section class="control-hud">
-      <div class="hud-section-label">
-        <i class="fa-solid fa-sliders"></i>
-        Step 1: 選擇特徵選擇演算法 (Feature Selection Algorithm)
+      <div class="hud-section-label" style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <i class="fa-solid fa-sliders"></i>
+          Step 1: 選擇特徵選擇演算法 (Feature Selection Algorithm)
+        </div>
+        <button type="button" class="glossary-quick-btn" data-term="forward_sfs" title="點擊查看特徵選擇演算法說明小卡">
+          <i class="fa-solid fa-circle-question"></i> 演算法名詞解說
+        </button>
       </div>
       <div class="algo-tabs" id="algoTabs">
         <button class="algo-tab-btn active" data-algo="Forward SFS">
           <i class="fa-solid fa-forward-step"></i>
           <span>Forward SFS (前向選擇)</span>
           <span class="tab-badge">1-SE Recommended</span>
+          <i class="fa-solid fa-circle-question algo-info-icon" data-term="forward_sfs" title="點擊查看 Forward SFS 解釋"></i>
         </button>
         <button class="algo-tab-btn" data-algo="Lasso">
           <i class="fa-solid fa-bolt-lightning"></i>
           <span>Lasso (L1 Regularization)</span>
           <span class="tab-badge">Embedded</span>
+          <i class="fa-solid fa-circle-question algo-info-icon" data-term="lasso" title="點擊查看 Lasso 解釋"></i>
         </button>
         <button class="algo-tab-btn" data-algo="RFE">
           <i class="fa-solid fa-arrows-split-up-and-left"></i>
           <span>RFE (遞迴消除)</span>
           <span class="tab-badge">Wrapper</span>
+          <i class="fa-solid fa-circle-question algo-info-icon" data-term="rfe" title="點擊查看 RFE 解釋"></i>
         </button>
         <button class="algo-tab-btn" data-algo="ElasticNet">
           <i class="fa-solid fa-layer-group"></i>
           <span>ElasticNet (L1 + L2)</span>
           <span class="tab-badge">Embedded</span>
+          <i class="fa-solid fa-circle-question algo-info-icon" data-term="elasticnet" title="點擊查看 ElasticNet 解釋"></i>
         </button>
         <button class="algo-tab-btn" data-algo="Exhaustive">
           <i class="fa-solid fa-network-wired"></i>
           <span>Exhaustive (窮舉法)</span>
           <span class="tab-badge">Global Optimum</span>
+          <i class="fa-solid fa-circle-question algo-info-icon" data-term="exhaustive" title="點擊查看 Exhaustive 解釋"></i>
         </button>
       </div>
 
@@ -274,11 +284,11 @@
       </div>
     </section>
 
-    <!-- Key Metrics Grid HUD -->
+    <!-- Key Metrics Grid HUD (Clickable for Glossary Info Card) -->
     <section class="metrics-hud-grid">
-      <div class="cyber-metric-card" id="cardRmse">
+      <div class="cyber-metric-card has-glossary" id="cardRmse" data-term="rmse" title="點擊查看「Test RMSE」專有名詞詳細說明小卡">
         <div class="metric-header">
-          <span class="metric-title">Test RMSE</span>
+          <span class="metric-title">Test RMSE <i class="fa-solid fa-circle-question term-help-icon"></i></span>
           <i class="fa-solid fa-bullseye metric-icon"></i>
         </div>
         <div class="metric-val" id="metricRmse">$8,275</div>
@@ -288,9 +298,9 @@
         </div>
       </div>
 
-      <div class="cyber-metric-card" id="cardMae">
+      <div class="cyber-metric-card has-glossary" id="cardMae" data-term="mae" title="點擊查看「Test MAE」專有名詞詳細說明小卡">
         <div class="metric-header">
-          <span class="metric-title">Test MAE</span>
+          <span class="metric-title">Test MAE <i class="fa-solid fa-circle-question term-help-icon"></i></span>
           <i class="fa-solid fa-calculator metric-icon"></i>
         </div>
         <div class="metric-val" id="metricMae">$6,772</div>
@@ -299,9 +309,9 @@
         </div>
       </div>
 
-      <div class="cyber-metric-card sweet" id="cardR2">
+      <div class="cyber-metric-card sweet has-glossary" id="cardR2" data-term="r2" title="點擊查看「R² Score」專有名詞詳細說明小卡">
         <div class="metric-header">
-          <span class="metric-title">R² Score</span>
+          <span class="metric-title">R² Score <i class="fa-solid fa-circle-question term-help-icon"></i></span>
           <i class="fa-solid fa-chart-pie metric-icon"></i>
         </div>
         <div class="metric-val" id="metricR2" style="color:var(--emerald-neon)">94.65%</div>
@@ -310,9 +320,9 @@
         </div>
       </div>
 
-      <div class="cyber-metric-card" id="cardAdjR2">
+      <div class="cyber-metric-card has-glossary" id="cardAdjR2" data-term="adj_r2" title="點擊查看「Adjusted R²」專有名詞詳細說明小卡">
         <div class="metric-header">
-          <span class="metric-title">Adjusted R²</span>
+          <span class="metric-title">Adjusted R² <i class="fa-solid fa-circle-question term-help-icon"></i></span>
           <i class="fa-solid fa-scale-balanced metric-icon"></i>
         </div>
         <div class="metric-val" id="metricAdjR2">93.98%</div>
@@ -321,9 +331,9 @@
         </div>
       </div>
 
-      <div class="cyber-metric-card" id="cardFstat">
+      <div class="cyber-metric-card has-glossary" id="cardFstat" data-term="f_stat" title="點擊查看「F-Statistic」專有名詞詳細說明小卡">
         <div class="metric-header">
-          <span class="metric-title">F-Statistic</span>
+          <span class="metric-title">F-Statistic <i class="fa-solid fa-circle-question term-help-icon"></i></span>
           <i class="fa-solid fa-chart-column metric-icon"></i>
         </div>
         <div class="metric-val" id="metricFstat">652.4</div>
@@ -332,9 +342,9 @@
         </div>
       </div>
 
-      <div class="cyber-metric-card parsimony" id="cardParsimony">
+      <div class="cyber-metric-card parsimony has-glossary" id="cardParsimony" data-term="parsimony" title="點擊查看「決策診斷狀態 / 1-SE 簡約原則」說明小卡">
         <div class="metric-header">
-          <span class="metric-title">決策診斷狀態</span>
+          <span class="metric-title">決策診斷狀態 <i class="fa-solid fa-circle-question term-help-icon"></i></span>
           <i class="fa-solid fa-compass-drafting metric-icon"></i>
         </div>
         <div class="metric-val" id="metricParsimony" style="font-size:21px">★ 1-SE Choice</div>
@@ -347,9 +357,12 @@
     <!-- Live Equation Terminal Bar -->
     <div class="equation-terminal" id="liveEquationTerminal">
       <i class="fa-solid fa-terminal" style="color:var(--cyan-neon); font-size:16px"></i>
-      <div id="liveEquation" style="white-space:nowrap; overflow-x:auto;">
+      <div id="liveEquation" style="white-space:nowrap; overflow-x:auto; flex:1;">
         <!-- Filled dynamically -->
       </div>
+      <button type="button" class="equation-help-btn" data-term="equation" title="點擊了解迴歸方程式各項意義">
+        <i class="fa-solid fa-circle-question"></i> 方程式如何解讀？
+      </button>
     </div>
 
     <!-- Charts Section: Trajectory Comparison -->
@@ -407,12 +420,24 @@
           <thead>
             <tr>
               <th>Feature (特徵名稱)</th>
-              <th>Coefficient (β)</th>
-              <th>Std. Error</th>
-              <th>t-Statistic</th>
-              <th>p-Value</th>
-              <th>95% Conf. Interval</th>
-              <th>VIF (共線性檢查)</th>
+              <th class="glossary-th" data-term="beta" title="點擊查看迴歸係數 (β) 解說">
+                Coefficient (β) <i class="fa-solid fa-circle-question th-help-icon"></i>
+              </th>
+              <th class="glossary-th" data-term="std_err" title="點擊查看標準誤 (Std. Error) 解說">
+                Std. Error <i class="fa-solid fa-circle-question th-help-icon"></i>
+              </th>
+              <th class="glossary-th" data-term="t_stat" title="點擊查看 t 統計量解說">
+                t-Statistic <i class="fa-solid fa-circle-question th-help-icon"></i>
+              </th>
+              <th class="glossary-th" data-term="p_value" title="點擊查看 p-Value (顯著性) 解說">
+                p-Value <i class="fa-solid fa-circle-question th-help-icon"></i>
+              </th>
+              <th class="glossary-th" data-term="conf_interval" title="點擊查看 95% 信賴區間解說">
+                95% Conf. Interval <i class="fa-solid fa-circle-question th-help-icon"></i>
+              </th>
+              <th class="glossary-th" data-term="vif" title="點擊查看 VIF (多重共線性) 解說">
+                VIF (共線性檢查) <i class="fa-solid fa-circle-question th-help-icon"></i>
+              </th>
             </tr>
           </thead>
           <tbody id="coefTableBody">
@@ -513,8 +538,12 @@
               <th>Sample Index</th>
               <th>Actual Value</th>
               <th>Predicted Value</th>
-              <th>Residual (y - ŷ)</th>
-              <th>Absolute Error</th>
+              <th class="glossary-th" data-term="residual" title="點擊查看殘差 (y - ŷ) 解釋小卡">
+                Residual (y - ŷ) <i class="fa-solid fa-circle-question th-help-icon"></i>
+              </th>
+              <th class="glossary-th" data-term="residual" title="點擊查看絕對殘差與離群值解釋小卡">
+                Absolute Error <i class="fa-solid fa-circle-question th-help-icon"></i>
+              </th>
               <th>Error Percentage</th>
             </tr>
           </thead>
@@ -576,6 +605,98 @@
         <button onclick="document.getElementById('datasetModal').style.display='none'" class="preset-btn"
           style="padding:8px 16px;">
           關閉視窗
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interactive Glossary Term Info Modal Dialog -->
+  <div id="termInfoModal" class="term-modal-backdrop" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="termTitle">
+    <div class="term-modal-card">
+      <!-- Modal Header -->
+      <div class="term-modal-header">
+        <div class="term-header-left">
+          <div class="term-header-tag-row">
+            <span class="term-category-badge" id="termCategoryBadge">模型成效指標</span>
+            <span class="term-alias-badge" id="termAliasBadge">TEST METRIC</span>
+          </div>
+          <h3 class="term-modal-title">
+            <span class="term-title-icon-box" id="termIconBox"><i class="fa-solid fa-bullseye"></i></span>
+            <span id="termTitle">Test RMSE</span>
+            <span class="term-subtitle" id="termSubtitle">測試集均方根誤差</span>
+          </h3>
+        </div>
+        <button type="button" id="btnCloseTermModal" class="term-close-btn" aria-label="關閉名詞小卡">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="term-modal-body">
+        <!-- 1. 白話文秒懂 -->
+        <div class="term-section highlight-metaphor">
+          <div class="term-sec-head">
+            <i class="fa-solid fa-lightbulb" style="color:var(--amber-neon)"></i>
+            <span>白話文秒懂（生活化比喻）</span>
+          </div>
+          <div class="term-sec-body metaphor-text" id="termMetaphor">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- 2 & 3: 數值判讀法則 + 數學原理 (雙欄網格) -->
+        <div class="term-dual-grid">
+          <div class="term-section">
+            <div class="term-sec-head">
+              <i class="fa-solid fa-chart-line" style="color:var(--cyan-neon)"></i>
+              <span>數值怎麼看？（判讀法則）</span>
+            </div>
+            <div class="term-sec-body" id="termInterpretation">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <div class="term-section">
+            <div class="term-sec-head">
+              <i class="fa-solid fa-square-root-variable" style="color:var(--indigo-neon)"></i>
+              <span>數學原理與公式定義</span>
+            </div>
+            <div class="term-sec-body formula-box" id="termFormula">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. 在特徵選擇與機器學習中的角色 -->
+        <div class="term-section highlight-role">
+          <div class="term-sec-head">
+            <i class="fa-solid fa-crosshairs" style="color:var(--emerald-neon)"></i>
+            <span>在特徵選擇與決策診斷中的關鍵角色</span>
+          </div>
+          <div class="term-sec-body role-text" id="termRole">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- 5. 當前即時數值解讀（動態現場數據） -->
+        <div class="term-section current-diag" id="termCurrentSection" style="display:none;">
+          <div class="term-sec-head">
+            <i class="fa-solid fa-gauge-high" style="color:var(--rose-neon)"></i>
+            <span>當前啟用模型現場診斷</span>
+          </div>
+          <div class="term-sec-body" id="termCurrentValueText">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="term-modal-footer">
+        <span class="term-footer-hint">
+          <i class="fa-regular fa-keyboard"></i> 提示：可按鍵盤 <kbd>ESC</kbd> 或點擊卡片外部背景關閉
+        </span>
+        <button type="button" id="btnConfirmTermModal" class="term-action-btn">
+          <i class="fa-solid fa-check"></i> 我知道了！
         </button>
       </div>
     </div>
