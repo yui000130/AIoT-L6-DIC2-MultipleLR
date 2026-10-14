@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Multiple Linear Regression & Feature Selection Explorer (AIoT Cyber Edition)</title>
-  <meta name="description" content="AIoT 多元線性迴歸與五大特徵選擇互動式探索平台。支援 50 Startups 與 Boston Housing 資料集切換、即時統計檢定、預估模擬器與離群值診斷。">
+  <meta name="description" content="AIoT 多元線性迴歸與五大特徵選擇互動式探索平台。支援 50 Startups、Boston Housing 及自訂 CSV 網址切換、即時統計檢定、預估模擬器與 Top 10 離群值診斷。">
 
   <!-- Google Fonts: Outfit, Inter, Fira Code -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,6 +16,9 @@
 
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- PapaParse CDN for robust CSV parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <!-- Cyber Design Stylesheet -->
   <link rel="stylesheet" href="style.css">
@@ -39,19 +42,8 @@
         </div>
       </div>
 
+      <!-- Upper Right Status & Actions -->
       <div class="header-status">
-        <!-- Dataset Switcher Buttons -->
-        <div class="dataset-switcher" id="datasetSwitcher">
-          <button class="dataset-switch-btn active" data-dataset="startups" id="btnDsStartups">
-            <i class="fa-solid fa-rocket"></i>
-            <span>50 Startups (新創獲利)</span>
-          </button>
-          <button class="dataset-switch-btn" data-dataset="boston" id="btnDsBoston">
-            <i class="fa-solid fa-house-chimney"></i>
-            <span>Boston Housing (房價預估)</span>
-          </button>
-        </div>
-
         <div class="status-pill">
           <span class="pulse-dot"></span>
           <span>Engine: <strong>ONLINE</strong></span>
@@ -66,6 +58,77 @@
         </a>
       </div>
     </header>
+
+    <!-- Prominent Dataset Hub & Custom CSV Bar -->
+    <section class="cyber-dataset-hub">
+      <div class="dataset-hub-header">
+        <div class="hub-title">
+          <i class="fa-solid fa-layer-group" style="color:var(--cyan-neon); font-size:17px"></i>
+          <span>資料集切換中心 (Active Dataset Selection)</span>
+        </div>
+        <span class="hub-tip">選擇內建基準資料集，或貼上外部公開 CSV 直連網址進行即時機器學習訓練與視覺化</span>
+      </div>
+
+      <div class="dataset-cards-grid">
+        <!-- Card 1: 50 Startups -->
+        <div class="ds-card active" data-dataset="startups" id="cardDsStartups">
+          <div class="ds-icon"><i class="fa-solid fa-rocket"></i></div>
+          <div class="ds-info">
+            <h4>50 Startups</h4>
+            <p>50 筆新創營運數據 · 預測獲利 (Profit)</p>
+          </div>
+          <span class="ds-badge">內建官方</span>
+        </div>
+
+        <!-- Card 2: Boston Housing -->
+        <div class="ds-card" data-dataset="boston" id="cardDsBoston">
+          <div class="ds-icon"><i class="fa-solid fa-house-chimney"></i></div>
+          <div class="ds-info">
+            <h4>Boston Housing</h4>
+            <p>506 筆城鎮住宅數據 · 預測房價 (MEDV)</p>
+          </div>
+          <span class="ds-badge">經典基準</span>
+        </div>
+
+        <!-- Card 3: Custom CSV URL -->
+        <div class="ds-card custom" data-dataset="custom" id="cardDsCustom">
+          <div class="ds-icon"><i class="fa-solid fa-link"></i></div>
+          <div class="ds-info">
+            <h4>其他：自訂 CSV 網址</h4>
+            <p>貼上公開 CSV 直連網址 · 即時解析訓練</p>
+          </div>
+          <span class="ds-badge custom">動態擴充</span>
+        </div>
+      </div>
+
+      <!-- Expandable Custom CSV Input Panel -->
+      <div class="custom-csv-panel" id="customCsvPanel" style="display:none">
+        <div class="csv-input-row">
+          <div class="input-wrapper">
+            <i class="fa-solid fa-globe input-icon"></i>
+            <input type="url" id="customCsvUrlInput" placeholder="請貼上公開 CSV 直連網址 (例如: https://.../housing.csv 或任何公開 CSV)">
+          </div>
+          <button id="btnLoadCustomCsv" class="cyber-action-btn" type="button">
+            <i class="fa-solid fa-bolt"></i> 載入並重構模型
+          </button>
+          
+          <input type="file" id="customCsvFileInput" accept=".csv,text/csv" style="display:none">
+          <button id="btnUploadCsvFile" class="cyber-action-btn secondary" type="button" title="直接上傳電腦中的 CSV 檔案，100% 免受網路連線與 CORS 跨域限制！">
+            <i class="fa-solid fa-file-arrow-up"></i> 本機 CSV 上傳
+          </button>
+        </div>
+
+        <div class="csv-presets-row">
+          <span class="presets-label">一鍵快速測試：</span>
+          <button class="mini-preset-btn" data-url="https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv" data-target="medv">Boston Housing (.csv)</button>
+          <button class="mini-preset-btn" data-url="https://raw.githubusercontent.com/Avik-Jain/100-Days-Of-ML-Code/master/datasets/50_Startups.csv" data-target="Profit">50 Startups (.csv)</button>
+          <button class="mini-preset-btn" data-url="https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/insurance.csv" data-target="charges">Medical Insurance (.csv)</button>
+          <button class="mini-preset-btn" data-url="https://raw.githubusercontent.com/jbrownlee/Datasets/master/housing.csv" data-target="medv">Housing (無標題版, jbrownlee)</button>
+        </div>
+
+        <div id="customCsvStatus" class="custom-status-msg" style="display:none"></div>
+      </div>
+    </section>
 
     <!-- Hero HUD Banner -->
     <section class="hero-banner">
@@ -121,6 +184,7 @@
       <div class="hud-section-label" style="margin-top:16px">
         <i class="fa-solid fa-cubes"></i>
         Step 2: 選擇特徵數量 K（模型複雜度階梯）
+        <span style="font-size:12px; color:var(--cyan-neon); font-weight:500; margin-left:8px; background:rgba(0,240,255,0.08); padding:2px 8px; border-radius:4px; border:1px solid rgba(0,240,255,0.25);">（最多選十個）</span>
       </div>
       <div class="k-selector-container" id="kSelectorGroup">
         <button class="k-btn parsimony active" data-k="1">
@@ -231,7 +295,10 @@
             <i class="fa-solid fa-chart-line" style="color:var(--cyan-neon)"></i>
             RMSE Trajectory by Number of Features (K)
           </h3>
-          <span class="card-tag">Lower is Better</span>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="card-tag" id="rmseKValTag" style="color:var(--cyan-neon); border-color:rgba(0,240,255,0.3); background:rgba(0,240,255,0.08); font-weight:600;">K=1 基準</span>
+            <span class="card-tag">Lower is Better</span>
+          </div>
         </div>
         <div class="chart-wrapper">
           <canvas id="chartRmse"></canvas>
@@ -245,7 +312,10 @@
             <i class="fa-solid fa-chart-area" style="color:var(--emerald-neon)"></i>
             R² Fit Curve Across Algorithms (K)
           </h3>
-          <span class="card-tag">Higher is Better</span>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span class="card-tag" id="r2KValTag" style="color:var(--emerald-neon); border-color:rgba(0,255,170,0.3); background:rgba(0,255,170,0.08); font-weight:600;">K=1 基準</span>
+            <span class="card-tag">Higher is Better</span>
+          </div>
         </div>
         <div class="chart-wrapper">
           <canvas id="chartR2"></canvas>
@@ -284,14 +354,14 @@
 
     <!-- Diagnostic Charts: Scatter & Importance -->
     <div class="charts-grid">
-      <!-- Chart 3: Actual vs Predicted -->
+      <!-- Chart 3: Actual vs Predicted with Top 10 Outliers -->
       <div class="cyber-card">
         <div class="cyber-card-header">
           <h3>
             <i class="fa-solid fa-arrows-to-dot" style="color:var(--cyan-neon)"></i>
             <span id="scatterChartTitle">Actual vs. Predicted Profit</span>
           </h3>
-          <span class="card-tag">Dashed: Ideal y = x</span>
+          <span class="card-tag">Dashed: Ideal y = x | Top 10 Outliers</span>
         </div>
         <div class="chart-wrapper">
           <canvas id="chartScatter"></canvas>
@@ -354,14 +424,14 @@
       </div>
     </div>
 
-    <!-- Outliers Diagnostic Matrix -->
+    <!-- Outliers Diagnostic Matrix (Top 10) -->
     <div class="cyber-card">
       <div class="cyber-card-header">
         <h3>
           <i class="fa-solid fa-magnifying-glass-chart" style="color:var(--rose-neon)"></i>
-          Top 10 Outliers Diagnostic (離群值診斷與殘差分析)
+          Top 10 Outliers Diagnostic (前 10 大離群值診斷與殘差分析)
         </h3>
-        <span class="card-tag">依絕對殘差 (Absolute Error) 排序</span>
+        <span class="card-tag">依絕對殘差 (Absolute Error) 排序前 10 筆</span>
       </div>
       <div class="table-responsive">
         <table class="cyber-table">
