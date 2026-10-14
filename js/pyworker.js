@@ -27,10 +27,10 @@ async function initPython(id) {
   progress(id, '安裝 numpy、pandas、scipy、scikit-learn…');
   await py.loadPackage(['numpy', 'pandas', 'scipy', 'scikit-learn']);
   progress(id, '載入分析引擎 csv_engine.py…');
-  const res = await fetch(`csv_engine.py?v=${ENGINE_VERSION}`);
+  const res = await fetch(`../python/csv_engine.py?v=${ENGINE_VERSION}`);
   if (!res.ok) {
-    throw { kind: 'load', message: `找不到分析引擎 csv_engine.py（HTTP ${res.status}）`,
-            hint: '請確認 csv_engine.py 和 index.html 放在同一個資料夾並已上傳到 GitHub' };
+    throw { kind: 'load', message: `找不到分析引擎 python/csv_engine.py（HTTP ${res.status}）`,
+            hint: '請確認 python/csv_engine.py 存在且已上傳到 GitHub' };
   }
   py.FS.writeFile('/home/pyodide/csv_engine.py', await res.text());
   py.runPython('import sys; sys.path.insert(0, "/home/pyodide"); import csv_engine');

@@ -449,7 +449,7 @@
           hint: '請使用最新版 Chrome、Edge、Firefox 或 Safari'
         };
       }
-      worker = new Worker('pyworker.js');
+      worker = new Worker('js/pyworker.js?v=2.6.0');
       worker.onmessage = (e) => {
         const { id, type, result, error, msg } = e.data;
         const p = pending.get(id);

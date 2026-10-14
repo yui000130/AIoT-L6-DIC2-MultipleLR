@@ -6,7 +6,7 @@
 
 <p align="center">
   <a href="https://yui000130.github.io/AIoT-L6-DIC2-MultipleLR/">
-    <img src="preview.png" alt="多元線性迴歸與特徵選擇探索系統 UI 預覽" width="100%" style="border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
+    <img src="assets/preview.png" alt="多元線性迴歸與特徵選擇探索系統 UI 預覽" width="100%" style="border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.6);">
   </a>
 </p>
 
@@ -150,19 +150,24 @@ $$\text{VIF}_j = \frac{1}{1 - R_j^2}$$
 ```bash
 AIoT-L6-50-startup/
 ├── index.html                           # 網頁主結構 (Cyber HUD、三大多元線性資料集介面)
-├── style.css                            # 霓虹暗黑科技風 CSS 系統、玻璃擬態與響應式排版
-├── app.js                               # 前端主控制器 (PyEngine 橋接、Chart.js 外掛、模擬器)
-├── pyworker.js                          # Web Worker 背景執行緒 (驅動 Pyodide WebAssembly)
-├── csv_engine.py                        # 瀏覽器端 Python 迴歸分析引擎 (特徵選擇、CV、檢定)
-├── model_data.js                        # 50 Startups 與 Boston Housing 預算模型資料檔
-├── main.py                              # Python 後端完整資料處理、模型訓練與特徵選擇腳本
-├── analyze_boston.py                    # 波士頓房價資料集專用分析與匯出腳本
-├── startup_final_model.pkl              # 訓練完成之最終部署模型 (Scikit-Learn Joblib 封裝)
-├── preview.png                          # 系統介面完整高畫質預覽圖
-├── all_models_predictions_and_outliers.csv # 各模型詳細預測值、殘差與學生化殘差
-├── top10_outliers.csv                   # 選定模型之 Top 10 離群值明細表
-├── forward_selection_results.md         # 前向選擇階段性評估數據 Markdown 表格
-├── model_comparison.md                  # Model B 全特徵 vs. 精簡模型比較報告
+├── css/
+│   └── style.css                        # 霓虹暗黑科技風 CSS 系統、玻璃擬態與響應式排版
+├── js/
+│   ├── app.js                           # 前端主控制器 (PyEngine 橋接、Chart.js 外掛、模擬器)
+│   ├── pyworker.js                      # Web Worker 背景執行緒 (驅動 Pyodide WebAssembly)
+│   └── model_data.js                    # 50 Startups 與 Boston Housing 預算模型資料檔
+├── python/
+│   ├── csv_engine.py                    # 瀏覽器端 Python 迴歸分析引擎 (特徵選擇、CV、檢定)
+│   └── main.py                          # Python 後端完整資料處理、模型訓練與特徵選擇腳本
+├── models/
+│   └── startup_final_model.pkl          # 訓練完成之最終部署模型 (Scikit-Learn Joblib 封裝)
+├── data/
+│   ├── all_models_predictions_and_outliers.csv # 各模型詳細預測值、殘差與學生化殘差
+│   ├── top10_outliers.csv               # 選定模型之 Top 10 離群值明細表
+│   ├── forward_selection_results.md     # 前向選擇階段性評估數據 Markdown 表格
+│   └── model_comparison.md              # Model B 全特徵 vs. 精簡模型比較報告
+├── assets/
+│   └── preview.png                      # 系統介面完整高畫質預覽圖
 └── README.md                            # 專案完整技術文件
 ```
 
