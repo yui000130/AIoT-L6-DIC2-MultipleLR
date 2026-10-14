@@ -28,6 +28,7 @@
 ## 📖 專案目錄 (Table of Contents)
 - [專案簡介 (Overview)](#-專案簡介-overview)
 - [核心三大資料集中心 (Active Dataset Selection)](#-核心三大資料集中心-active-dataset-selection)
+- [專案涵蓋之 CSV 資料集詳細規格 (CSV Datasets)](#-專案涵蓋之-csv-資料集詳細規格-csv-datasets)
 - [瀏覽器端 Python 分析引擎 (Pyodide Engine)](#-瀏覽器端-python-分析引擎-pyodide-engine)
 - [五大特徵選擇演算法 (Feature Selection Algorithms)](#-五大特徵選擇演算法-feature-selection-algorithms)
 - [核心統計理論與決策方法 (Methodology & Statistics)](#-核心統計理論與決策方法-methodology--statistics)
@@ -56,6 +57,71 @@
 | **🚀 50 Startups**<br>`(內建官方)` | 50 筆紀錄<br>4 大維度 | **公司利潤 (Profit)** | 探討研發、行政、行銷支出及州別（California 基準組）對淨利的邊際貢獻；驗證奧坎剃刀 1-SE 原則。 |
 | **🏠 Boston Housing**<br>`(經典基準)` | 506 筆城鎮<br>13 大特徵 | **住宅房價 (MEDV)** | 探索犯罪率、房間數、低收入比等指標；展現從 $K=1 \sim 10$ 特徵階梯中剔除共線性雜訊的過程。 |
 | **📂 其他：自訂資料集<br>（多元線性回歸）** | 任意 CSV<br>(10MB 內) | **使用者自選<br>數值目標** | **瀏覽器端純前端 Python 分析**：支援本機 CSV 拖曳上傳或公開網址下載，自動完成清洗、編碼、交叉驗證與建模。 |
+
+---
+
+## 📂 專案涵蓋之 CSV 資料集詳細規格 (CSV Datasets)
+
+本專案涵蓋與支援之所有核心 CSV 資料集規格整理如下，皆提供直接下載/測試連結：
+
+### 1. 🚀 50 Startups 新創營運數據集 (`50_Startups.csv`)
+* **資料來源**：[Avik-Jain 100-Days-Of-ML-Code (GitHub)](https://raw.githubusercontent.com/Avik-Jain/100-Days-Of-ML-Code/master/datasets/50_Startups.csv)
+* **直連下載網址**：`https://raw.githubusercontent.com/Avik-Jain/100-Days-Of-ML-Code/master/datasets/50_Startups.csv`
+* **資料規模**：50 筆觀測值、5 個欄位（無缺失值）
+* **欄位結構**：
+  * `R&D Spend`（研發支出，美元）：連續型數值，與獲利呈現高達 $r = 0.973$ 的極強正相關，為模型最強之主力特徵。
+  * `Administration`（行政支出，美元）：連續型數值，衡量企業內部運營成本。
+  * `Marketing Spend`（行銷支出，美元）：連續型數值，衡量市場開拓費用。
+  * `State`（公司所在州別）：名目類別變數，包含 `California`、`Florida`、`New York`。
+* **目標變數 ($y$)**：`Profit`（公司淨獲利，美元）。
+* **特徵工程處置**：
+  * **Two Dummies 基準組編碼**：以加州 `California` 為基準組（$\text{FL}=0, \text{NY}=0$），產生 $\text{State\_Florida}$ 與 $\text{State\_New York}$ 兩個虛擬變數，完全避開虛擬變數陷阱（Dummy Variable Trap）。
+
+---
+
+### 2. 🏠 Boston Housing 波士頓城鎮住宅價格資料集 (`BostonHousing.csv`)
+* **資料來源**：[selva86 datasets (GitHub)](https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv)
+* **直連下載網址**：`https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv`
+* **資料規模**：506 筆城鎮住宅區樣本、14 個欄位
+* **欄位結構（13 個解釋特徵）**：
+  * `crim`：城鎮人均犯罪率（Per capita crime rate by town）。
+  * `zn`：佔地超過 25,000 平方英尺之住宅用地比例。
+  * `indus`：城鎮非零售商業用地比例。
+  * `chas`：查爾斯河虛擬變數（若邊界緊鄰河道 $=1$，否則 $=0$）。
+  * `nox`：一氧化氮濃度（每千萬分之一，衡量空氣污染水準）。
+  * `rm`：每戶住宅之平均房間數量（顯著正相關特徵）。
+  * `age`：1940 年以前建造之老舊自用住宅比例。
+  * `dis`：至波士頓五個主要就業服務中心之加權距離。
+  * `rad`：輻射狀快速公路連通便利指數。
+  * `tax`：每 10,000 美元之全額物業稅率。
+  * `ptratio`：城鎮公立學校之師生比例（衡量公共教育資源充裕度）。
+  * `b`：城鎮非裔人口比例指標 $1000(Bk - 0.63)^2$。
+  * `lstat`：低收入社會階層人口比例（顯著負相關核心特徵）。
+* **目標變數 ($y$)**：`medv`（業主自住房屋價值中位數，單位：千美元 $1,000s）。
+* **模型決策重點**：原始 13 特徵中存在多組共線性關係，經由奧坎剃刀 1-SE 原則推薦出 Top 10 最優子集，有效剔除屋齡與商業用地雜訊。
+
+---
+
+### 3. 📄 Housing 無標題列資料集 (`housing.csv`)
+* **資料來源**：[jbrownlee Datasets (GitHub)](https://raw.githubusercontent.com/jbrownlee/Datasets/master/housing.csv)
+* **直連下載網址**：`https://raw.githubusercontent.com/jbrownlee/Datasets/master/housing.csv`
+* **資料規模**：506 筆純數值矩陣、**無欄位標題列（Headerless）**
+* **用途與測試特性**：
+  * 用於測試系統之「無標題自動嗅探引擎」。
+  * 系統自動偵測第一列即為數值數據，自動指派欄位標籤 `col_0` 至 `col_13`，並自動將最後一欄 `col_13` 智能推論為預測目標。
+
+---
+
+### 4. 🏥 Medical Insurance 醫療保險支出資料集 (`insurance.csv`，擴充測試案例)
+* **資料來源**：[stedy Machine-Learning-with-R-datasets (GitHub)](https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/insurance.csv)
+* **直連下載網址**：`https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/insurance.csv`
+* **資料規模**：1,338 筆保戶紀錄、7 個欄位
+* **欄位結構**：
+  * 連續數值：`age`（年齡）、`bmi`（身體質量指數）、`children`（扶養子女數）。
+  * 類別文字：`sex`（性別：`male`/`female`）、`smoker`（吸菸：`yes`/`no`）、`region`（居住地區：四個方位分區）。
+* **目標變數 ($y$)**：`charges`（個人年度醫療保險理賠支出金額，美元）。
+* **用途與測試特性**：
+  * 用於驗證自訂資料集在面對多個文字類別特徵時，自動辨識多類別等級（Levels）、挑選頻率最高者為基準組（Baseline），並自動建立完整 One-Hot / Dummy 迴歸特徵矩陣之能力。
 
 ---
 
