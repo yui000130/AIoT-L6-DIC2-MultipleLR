@@ -31,7 +31,7 @@
 
 ## 🎯 專案簡介 (Overview)
 
-本專案為 **AIoT 智慧物聯網與資料分析（DIC2）** 核心實作專案，針對 **50 家新創公司（50 Startups Dataset）** 的營運與財務數據進行深入的 **多元線性迴歸（Multiple Linear Regression）** 與 **特徵選擇（Feature Selection）** 實踐。
+本專案為 **AIoT 智慧物聯網與資料分析（DIC2）** 核心實作專案，支援 **50 家新創公司（50 Startups Dataset）** 與 **波士頓房價（Boston Housing Dataset, 506 筆）** 雙資料集的一鍵切換，針對營運財務與房地產估值進行深入的 **多元線性迴歸（Multiple Linear Regression）** 與 **特徵選擇（Feature Selection）** 實踐。
 
 遵循國際標準資料探勘流程 **CRISP-DM**：
 1. **Business Understanding（商業理解）**：評估新創公司在「研發支出 (R&D Spend)」、「行政支出 (Administration)」、「行銷推廣 (Marketing Spend)」與「所在州別 (State)」對「公司獲利 (Profit)」的實質影響，找出預測力最強且最精簡的模型。

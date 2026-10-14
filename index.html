@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>50 Startups: Multiple Linear Regression & Feature Selection Explorer (AIoT Cyber Edition)</title>
-  <meta name="description" content="AIoT 50 Startups 多元線性迴歸與五大特徵選擇互動式探索平台。即時模型評估、統計檢定、利潤預測與離群值診斷。">
+  <title>Multiple Linear Regression & Feature Selection Explorer (AIoT Cyber Edition)</title>
+  <meta name="description" content="AIoT 多元線性迴歸與五大特徵選擇互動式探索平台。支援 50 Startups 與 Boston Housing 資料集切換、即時統計檢定、預估模擬器與離群值診斷。">
 
   <!-- Google Fonts: Outfit, Inter, Fira Code -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -32,43 +32,51 @@
         </div>
         <div class="brand-info">
           <h1>
-            AIoT 50 Startups Explorer
-            <span class="badge-cyber">Cyber HUD v2.5</span>
+            <span id="brandTitle">50 Startups Multiple Linear Regression Explorer</span>
+            <span class="badge-cyber" id="brandBadge">Cyber HUD v2.5</span>
           </h1>
           <p class="brand-sub">Multiple Linear Regression &amp; Feature Selection Parsimony Explorer</p>
         </div>
       </div>
 
       <div class="header-status">
+        <!-- Dataset Switcher Buttons -->
+        <div class="dataset-switcher" id="datasetSwitcher">
+          <button class="dataset-switch-btn active" data-dataset="startups" id="btnDsStartups">
+            <i class="fa-solid fa-rocket"></i>
+            <span>50 Startups (新創獲利)</span>
+          </button>
+          <button class="dataset-switch-btn" data-dataset="boston" id="btnDsBoston">
+            <i class="fa-solid fa-house-chimney"></i>
+            <span>Boston Housing (房價預估)</span>
+          </button>
+        </div>
+
         <div class="status-pill">
           <span class="pulse-dot"></span>
-          <span>Quantum ML Engine: <strong>ACTIVE</strong></span>
-        </div>
-        <div class="status-pill">
-          <i class="fa-solid fa-database" style="color:var(--cyan-neon)"></i>
-          <span>Dataset: <strong>50 Startups</strong></span>
+          <span>Engine: <strong>ONLINE</strong></span>
         </div>
         <button id="btnOpenDataset" class="github-link-btn" style="cursor:pointer">
           <i class="fa-solid fa-table-list"></i>
-          <span>瀏覽資料集 (50筆)</span>
+          <span id="btnOpenDatasetText">瀏覽資料集 (50筆)</span>
         </button>
         <a href="https://github.com/yui000130/AIoT-L6-DIC2-MultipleLR" target="_blank" rel="noopener noreferrer" class="github-link-btn">
           <i class="fa-brands fa-github"></i>
-          <span>GitHub 專案倉庫</span>
+          <span>GitHub</span>
         </a>
       </div>
     </header>
 
     <!-- Hero HUD Banner -->
     <section class="hero-banner">
-      <h2>
+      <h2 id="heroTitle">
         <i class="fa-solid fa-microchip" style="color:var(--cyan-neon)"></i>
-        新創公司利潤預測與特徵選擇奧坎剃刀決策系統
+        50 Startups Multiple Linear Regression Explorer
       </h2>
-      <p>
-        依據 CRISP-DM 流程，透過五大熱門特徵選擇演算法（Forward SFS 前向選擇、Lasso L1 正則化、RFE 遞迴特徵消除、ElasticNet、Exhaustive 窮舉）探索研發、行政、行銷支出及州別（Two Dummies 編碼：California 基準組）對利潤的最佳預測組合，並以 <strong>1-SE 法則（One Standard Error Rule）</strong> 在精簡性與準確度間取得最佳平衡。
+      <p id="heroDesc">
+        依據 CRISP-DM 流程，透過五大熱門特徵選擇演算法（Forward SFS 前向選擇、Lasso L1 正則化、RFE 遞迴特徵消除、ElasticNet、Exhaustive 窮舉）探索研發、行政、行銷支出及州別（Two Dummies 編碼：California 基準組）對公司利潤的最佳預測組合，並以 1-SE 法則（One Standard Error Rule）在精簡性與準確度間取得最佳平衡。
       </p>
-      <div class="hero-tags">
+      <div class="hero-tags" id="heroTags">
         <span class="hero-tag"><i class="fa-solid fa-atom"></i> 5-Fold Repeated CV (5×5 重複交叉驗證)</span>
         <span class="hero-tag"><i class="fa-solid fa-filter"></i> 奧坎剃刀原則 (Occam's Razor)</span>
         <span class="hero-tag"><i class="fa-solid fa-chart-line"></i> Two Dummies (FL=1, NY=1, CA=0)</span>
@@ -168,7 +176,7 @@
         </div>
         <div class="metric-val" id="metricR2" style="color:var(--emerald-neon)">94.65%</div>
         <div class="metric-desc">
-          <span>目標門檻 ≥ 90% (✅ 達成)</span>
+          <span id="metricR2Desc">解釋力表現優異</span>
         </div>
       </div>
 
@@ -179,7 +187,7 @@
         </div>
         <div class="metric-val" id="metricAdjR2">93.98%</div>
         <div class="metric-desc">
-          <span>懲罰多餘無效參數後淨解釋力</span>
+          <span>懲罰多餘參數後淨解釋力</span>
         </div>
       </div>
 
@@ -252,7 +260,7 @@
           <i class="fa-solid fa-table" style="color:var(--indigo-neon)"></i>
           Model Coefficients &amp; Statistical Significance (迴歸係數與多重共線性 VIF 檢定)
         </h3>
-        <span class="card-tag">Two Dummies: CA=Baseline (FL=0, NY=0)</span>
+        <span class="card-tag" id="coefCardTag">Two Dummies: CA=Baseline (FL=0, NY=0)</span>
       </div>
       <div class="table-responsive">
         <table class="cyber-table">
@@ -281,7 +289,7 @@
         <div class="cyber-card-header">
           <h3>
             <i class="fa-solid fa-arrows-to-dot" style="color:var(--cyan-neon)"></i>
-            Actual vs. Predicted Profit (50 Startups)
+            <span id="scatterChartTitle">Actual vs. Predicted Profit</span>
           </h3>
           <span class="card-tag">Dashed: Ideal y = x</span>
         </div>
@@ -305,92 +313,20 @@
       </div>
     </div>
 
-    <!-- Live Profit Predictor (Cyber Simulator HUD) -->
+    <!-- Live Predictor Simulator HUD -->
     <div class="cyber-card" style="margin-bottom:24px">
       <div class="cyber-card-header">
         <h3>
           <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--cyan-neon)"></i>
-          Live Profit Predictor (AIoT 即時投資支出利潤模擬器)
+          <span id="simulatorTitle">Live Profit Predictor (AIoT 即時投資支出利潤模擬器)</span>
         </h3>
         <span class="card-tag">Real-Time ML Inference</span>
       </div>
 
       <div class="simulator-layout">
-        <!-- Input Sliders -->
-        <div class="controls-column">
-          <!-- R&D Spend -->
-          <div class="slider-group">
-            <div class="slider-label-row">
-              <span class="slider-title">
-                <i class="fa-solid fa-flask" style="color:var(--cyan-neon)"></i>
-                R&amp;D Spend (研發支出)
-              </span>
-              <span class="slider-val-box" id="valRd">$160,000</span>
-            </div>
-            <input type="range" class="cyber-range" id="sliderRd" min="0" max="200000" step="5000" value="160000">
-          </div>
-
-          <!-- Administration -->
-          <div class="slider-group">
-            <div class="slider-label-row">
-              <span class="slider-title">
-                <i class="fa-solid fa-briefcase" style="color:var(--indigo-neon)"></i>
-                Administration Spend (行政支出)
-              </span>
-              <span class="slider-val-box" id="valAdmin">$130,000</span>
-            </div>
-            <input type="range" class="cyber-range" id="sliderAdmin" min="50000" max="200000" step="5000" value="130000">
-          </div>
-
-          <!-- Marketing Spend -->
-          <div class="slider-group">
-            <div class="slider-label-row">
-              <span class="slider-title">
-                <i class="fa-solid fa-bullhorn" style="color:var(--amber-neon)"></i>
-                Marketing Spend (行銷推廣支出)
-              </span>
-              <span class="slider-val-box" id="valMarketing">$300,000</span>
-            </div>
-            <input type="range" class="cyber-range" id="sliderMarketing" min="0" max="500000" step="10000" value="300000">
-          </div>
-
-          <!-- State Selection -->
-          <div class="slider-group" style="margin-bottom:10px">
-            <div class="slider-label-row">
-              <span class="slider-title">
-                <i class="fa-solid fa-location-dot" style="color:var(--rose-neon)"></i>
-                Startup Location (所在州別)
-              </span>
-            </div>
-            <div class="state-selector-pills">
-              <button class="state-btn active" data-state="California">
-                <i class="fa-solid fa-sun"></i> California (基準組)
-              </button>
-              <button class="state-btn" data-state="Florida">
-                <i class="fa-solid fa-umbrella-beach"></i> Florida
-              </button>
-              <button class="state-btn" data-state="New York">
-                <i class="fa-solid fa-city"></i> New York
-              </button>
-            </div>
-          </div>
-
-          <!-- Preset Configurations -->
-          <div class="presets-row">
-            <span style="font-size:12px; color:var(--text-dim); font-weight:600">快速情境預設：</span>
-            <button class="preset-btn" data-rd="165000" data-admin="135000" data-mkt="470000" data-state="New York">
-              🦄 科技獨角獸 (High Growth)
-            </button>
-            <button class="preset-btn" data-rd="30000" data-admin="85000" data-mkt="50000" data-state="California">
-              🚀 輕量精實 (Lean Bootstrapped)
-            </button>
-            <button class="preset-btn" data-rd="100000" data-admin="110000" data-mkt="400000" data-state="Florida">
-              📢 行銷導向 (Marketing Heavy)
-            </button>
-            <button class="preset-btn" data-rd="73721" data-admin="121344" data-mkt="211025" data-state="California">
-              📊 50家平均值 (Average Base)
-            </button>
-          </div>
+        <!-- Input Sliders Column -->
+        <div class="controls-column" id="simulatorControls">
+          <!-- Injected dynamically by app.js based on active dataset! -->
         </div>
 
         <!-- Output Prediction Display Card -->
@@ -398,7 +334,7 @@
           <div>
             <div class="pred-header">
               <i class="fa-solid fa-chart-line"></i>
-              即時預測利潤 (Predicted Profit)
+              <span id="targetValLabel">即時預測利潤 (Predicted Profit)</span>
             </div>
             <div class="live-profit-number mono" id="liveProfitVal">$184,675</div>
             <div class="pred-benchmark" id="profitComparison">
@@ -407,7 +343,7 @@
           </div>
 
           <div class="waterfall-breakdown">
-            <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; color:var(--text-dim); margin-bottom:10px">
+            <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; color:var(--text-dim); margin-bottom:10px" id="waterfallHeader">
               利潤貢獻來源拆解 (Contribution Waterfall)
             </div>
             <div id="waterfallList">
@@ -432,9 +368,9 @@
           <thead>
             <tr>
               <th>Rank</th>
-              <th>Startup Index</th>
-              <th>Actual Profit</th>
-              <th>Predicted Profit</th>
+              <th>Sample Index</th>
+              <th>Actual Value</th>
+              <th>Predicted Value</th>
               <th>Residual (y - ŷ)</th>
               <th>Absolute Error</th>
               <th>Error Percentage</th>
@@ -450,7 +386,7 @@
     <!-- Cyber Footer -->
     <footer class="cyber-footer">
       <p>
-        AIoT L6 DIC2: Multiple Linear Regression &amp; Feature Selection Explorer | Designed with Cyber Dark Glassmorphism
+        AIoT DIC2: Multiple Linear Regression &amp; Feature Selection Explorer | Designed with Cyber Dark Glassmorphism
       </p>
       <p style="margin-top:6px">
         GitHub Repository: <a href="https://github.com/yui000130/AIoT-L6-DIC2-MultipleLR" target="_blank" rel="noopener noreferrer">yui000130/AIoT-L6-DIC2-MultipleLR</a>
@@ -461,11 +397,11 @@
 
   <!-- Raw Dataset Modal Dialog -->
   <div id="datasetModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:999; backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:20px;">
-    <div style="background:var(--bg-dark); border:1px solid var(--border-neon); border-radius:var(--radius-lg); width:100%; max-width:960px; max-height:85vh; display:flex; flex-direction:column; box-shadow:var(--shadow-cyber);">
+    <div style="background:var(--bg-dark); border:1px solid var(--border-neon); border-radius:var(--radius-lg); width:100%; max-width:980px; max-height:85vh; display:flex; flex-direction:column; box-shadow:var(--shadow-cyber);">
       <div style="padding:20px 24px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
         <h3 style="color:#fff; font-size:18px; display:flex; align-items:center; gap:10px;">
           <i class="fa-solid fa-database" style="color:var(--cyan-neon)"></i>
-          50 Startups 原始數據集 (Raw Dataset Viewer)
+          <span id="datasetModalTitle">50 Startups 原始數據集 (Raw Dataset Viewer)</span>
         </h3>
         <button id="btnCloseDataset" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">
           <i class="fa-solid fa-xmark"></i>
@@ -473,20 +409,13 @@
       </div>
 
       <div style="padding:16px 24px; border-bottom:1px solid var(--border-subtle);">
-        <input type="text" id="datasetSearch" placeholder="搜尋州別或編號（例如: California, New York, Florida）..." style="width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:10px 14px; color:#fff; font-size:13px; outline:none;">
+        <input type="text" id="datasetSearch" placeholder="搜尋關鍵字或編號..." style="width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:10px 14px; color:#fff; font-size:13px; outline:none;">
       </div>
 
       <div style="overflow-y:auto; flex:1; padding:0 24px;">
         <table class="cyber-table" style="margin-top:10px;">
-          <thead>
-            <tr>
-              <th>Index</th>
-              <th>State</th>
-              <th>R&amp;D Spend</th>
-              <th>Administration</th>
-              <th>Marketing Spend</th>
-              <th>Actual Profit</th>
-            </tr>
+          <thead id="datasetModalHead">
+            <!-- Dynamically populated -->
           </thead>
           <tbody id="datasetTableBody">
             <!-- Dynamically populated -->
@@ -495,7 +424,7 @@
       </div>
 
       <div style="padding:16px 24px; border-top:1px solid var(--border-subtle); text-align:right;">
-        <span style="font-size:12px; color:var(--text-dim); margin-right:16px">總計 50 筆紀錄</span>
+        <span id="datasetModalCount" style="font-size:12px; color:var(--text-dim); margin-right:16px">總計 50 筆紀錄</span>
         <button onclick="document.getElementById('datasetModal').style.display='none'" class="preset-btn" style="padding:8px 16px;">
           關閉視窗
         </button>

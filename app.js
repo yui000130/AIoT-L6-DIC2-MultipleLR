@@ -1,33 +1,41 @@
 /**
- * AIoT 50 Startups Cyber Explorer - Core Application Logic
- * Interactive Multiple Linear Regression & Feature Selection Explorer
+ * AIoT Multiple Linear Regression & Feature Selection Explorer
+ * Multi-Dataset Controller: 50 Startups & Boston Housing Datasets
  */
 
 (function () {
   'use strict';
 
-  // Application State
+  // State Management
+  let currentDataset = 'startups';
   let currentAlgo = 'Forward SFS';
-  let currentK = 1; // Default to parsimonious 1-SE model
-  let currentState = 'California'; // Default state in simulator
+  let currentK = 1;
+  let currentStartupState = 'California';
 
-  // Chart instances
+  // Chart Instances
   let rmseChart = null;
   let r2Chart = null;
   let scatterChart = null;
   let coefChart = null;
 
-  // Method color map (Cyber palette)
+  // Algorithm Color Palette (Cyber Neon)
   const ALGO_COLORS = {
-    'Lasso': '#6366f1',
     'Forward SFS': '#00f0ff',
+    'Lasso': '#6366f1',
     'RFE': '#00ffaa',
     'ElasticNet': '#ff0055',
     'Exhaustive': '#a855f7'
   };
 
-  // DOM Elements cache
-  const elements = {
+  // Cached DOM Elements
+  const el = {
+    brandTitle: document.getElementById('brandTitle'),
+    brandBadge: document.getElementById('brandBadge'),
+    heroTitle: document.getElementById('heroTitle'),
+    heroDesc: document.getElementById('heroDesc'),
+    heroTags: document.getElementById('heroTags'),
+    btnDsStartups: document.getElementById('btnDsStartups'),
+    btnDsBoston: document.getElementById('btnDsBoston'),
     algoTabs: document.getElementById('algoTabs'),
     kSelectorGroup: document.getElementById('kSelectorGroup'),
     eqContainer: document.getElementById('liveEquation'),
@@ -36,73 +44,79 @@
     
     // Metrics
     metricRmse: document.getElementById('metricRmse'),
-    metricRmseNote: document.getElementById('metricRmseNote'),
     metricMae: document.getElementById('metricMae'),
     metricR2: document.getElementById('metricR2'),
+    metricR2Desc: document.getElementById('metricR2Desc'),
     metricAdjR2: document.getElementById('metricAdjR2'),
     metricFstat: document.getElementById('metricFstat'),
     metricParsimony: document.getElementById('metricParsimony'),
     metricParsimonyDesc: document.getElementById('metricParsimonyDesc'),
-    
-    // Simulator
-    sliderRd: document.getElementById('sliderRd'),
-    valRd: document.getElementById('valRd'),
-    sliderAdmin: document.getElementById('sliderAdmin'),
-    valAdmin: document.getElementById('valAdmin'),
-    sliderMarketing: document.getElementById('sliderMarketing'),
-    valMarketing: document.getElementById('valMarketing'),
-    stateButtons: document.querySelectorAll('.state-btn'),
-    presetButtons: document.querySelectorAll('.preset-btn'),
+    cardParsimony: document.getElementById('cardParsimony'),
+
+    // Titles & Labels
+    coefCardTag: document.getElementById('coefCardTag'),
+    scatterChartTitle: document.getElementById('scatterChartTitle'),
+    simulatorTitle: document.getElementById('simulatorTitle'),
+    targetValLabel: document.getElementById('targetValLabel'),
     liveProfitVal: document.getElementById('liveProfitVal'),
     profitComparison: document.getElementById('profitComparison'),
+    waterfallHeader: document.getElementById('waterfallHeader'),
     waterfallList: document.getElementById('waterfallList'),
-    
+    simulatorControls: document.getElementById('simulatorControls'),
+
     // Dataset Modal
     btnOpenDataset: document.getElementById('btnOpenDataset'),
+    btnOpenDatasetText: document.getElementById('btnOpenDatasetText'),
     btnCloseDataset: document.getElementById('btnCloseDataset'),
     datasetModal: document.getElementById('datasetModal'),
+    datasetModalTitle: document.getElementById('datasetModalTitle'),
+    datasetModalCount: document.getElementById('datasetModalCount'),
+    datasetModalHead: document.getElementById('datasetModalHead'),
     datasetTableBody: document.getElementById('datasetTableBody'),
     datasetSearch: document.getElementById('datasetSearch')
   };
 
-  // Helper formatting functions
+  // Formatting helpers
   const fmtCurrency = (v) => '$' + Math.round(v).toLocaleString('en-US');
   const fmtNumber = (v, d = 2) => Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  const fmtTarget = (v) => {
+    if (currentDataset === 'startups') {
+      return fmtCurrency(v);
+    } else {
+      return '$' + fmtNumber(v, 2) + 'k ($' + Math.round(v * 1000).toLocaleString('en-US') + ')';
+    }
+  };
 
   /**
-   * Initialize application on DOM ready
+   * App Initialization
    */
   document.addEventListener('DOMContentLoaded', () => {
-    if (!window.MODEL_DATA) {
-      console.error('MODEL_DATA not loaded!');
+    if (!window.DATASETS_CONFIG) {
+      console.error('DATASETS_CONFIG not found in model_data.js');
       return;
     }
-    
+
     initCharts();
-    setupEventListeners();
-    setupSimulator();
-    populateDatasetModal();
-    updateDashboard();
+    setupDatasetSwitcher();
+    setupAlgorithmsAndK();
+    setupModal();
+    applyDataset(currentDataset);
   });
 
   /**
-   * Set up Chart.js global defaults for Dark Cyber aesthetic
+   * Initialize Global Chart.js Defaults
    */
   function initCharts() {
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.font.family = "'Inter', sans-serif";
     Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.06)';
 
-    const commonOptions = {
+    const commonOpts = {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         legend: {
-          labels: {
-            boxWidth: 12,
-            font: { size: 11, weight: '600' },
-            color: '#cbd5e1'
-          }
+          labels: { boxWidth: 12, font: { size: 11, weight: '600' }, color: '#cbd5e1' }
         },
         tooltip: {
           backgroundColor: 'rgba(13, 19, 34, 0.95)',
@@ -111,37 +125,29 @@
           borderColor: 'rgba(0, 240, 255, 0.3)',
           borderWidth: 1,
           padding: 12,
-          boxPadding: 6,
           usePointStyle: true,
           titleFont: { family: "'Outfit', sans-serif", size: 13, weight: '700' }
         }
       },
       scales: {
-        x: {
-          grid: { color: 'rgba(255, 255, 255, 0.04)' },
-          ticks: { color: '#64748b', font: { size: 11 } }
-        },
-        y: {
-          grid: { color: 'rgba(255, 255, 255, 0.04)' },
-          ticks: { color: '#64748b', font: { size: 11 } }
-        }
+        x: { grid: { color: 'rgba(255, 255, 255, 0.04)' }, ticks: { color: '#64748b', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(255, 255, 255, 0.04)' }, ticks: { color: '#64748b', font: { size: 11 } } }
       }
     };
 
     // 1. RMSE Chart
-    const ctxRmse = document.getElementById('chartRmse').getContext('2d');
-    rmseChart = new Chart(ctxRmse, {
+    rmseChart = new Chart(document.getElementById('chartRmse').getContext('2d'), {
       type: 'line',
       data: { labels: [], datasets: [] },
       options: {
-        ...commonOptions,
+        ...commonOpts,
         scales: {
-          ...commonOptions.scales,
+          ...commonOpts.scales,
           y: {
-            ...commonOptions.scales.y,
+            ...commonOpts.scales.y,
             ticks: {
-              ...commonOptions.scales.y.ticks,
-              callback: (v) => '$' + (v / 1000).toFixed(0) + 'k'
+              ...commonOpts.scales.y.ticks,
+              callback: (v) => currentDataset === 'startups' ? '$' + (v / 1000).toFixed(0) + 'k' : v.toFixed(1)
             }
           }
         }
@@ -149,195 +155,364 @@
     });
 
     // 2. R² Chart
-    const ctxR2 = document.getElementById('chartR2').getContext('2d');
-    r2Chart = new Chart(ctxR2, {
+    r2Chart = new Chart(document.getElementById('chartR2').getContext('2d'), {
       type: 'line',
       data: { labels: [], datasets: [] },
       options: {
-        ...commonOptions,
+        ...commonOpts,
         scales: {
-          ...commonOptions.scales,
+          ...commonOpts.scales,
           y: {
-            ...commonOptions.scales.y,
+            ...commonOpts.scales.y,
             ticks: {
-              ...commonOptions.scales.y.ticks,
-              callback: (v) => (v * 100).toFixed(1) + '%'
+              ...commonOpts.scales.y.ticks,
+              callback: (v) => (v * 100).toFixed(0) + '%'
             }
           }
         }
       }
     });
 
-    // 3. Actual vs Predicted Scatter Chart
-    const ctxScatter = document.getElementById('chartScatter').getContext('2d');
-    scatterChart = new Chart(ctxScatter, {
+    // 3. Scatter Chart (Actual vs Predicted)
+    scatterChart = new Chart(document.getElementById('chartScatter').getContext('2d'), {
       type: 'scatter',
       data: { datasets: [] },
       options: {
-        ...commonOptions,
+        ...commonOpts,
         scales: {
           x: {
-            ...commonOptions.scales.x,
-            title: { display: true, text: 'Predicted Profit ($)', color: '#94a3b8', font: { size: 12, weight: '600' } },
-            ticks: { callback: (v) => '$' + (v / 1000).toFixed(0) + 'k' }
+            ...commonOpts.scales.x,
+            title: { display: true, text: 'Predicted Value', color: '#94a3b8', font: { size: 12, weight: '600' } }
           },
           y: {
-            ...commonOptions.scales.y,
-            title: { display: true, text: 'Actual Profit ($)', color: '#94a3b8', font: { size: 12, weight: '600' } },
-            ticks: { callback: (v) => '$' + (v / 1000).toFixed(0) + 'k' }
+            ...commonOpts.scales.y,
+            title: { display: true, text: 'Actual Value', color: '#94a3b8', font: { size: 12, weight: '600' } }
           }
         }
       }
     });
 
-    // 4. Feature Importance / Coefficients Bar Chart
-    const ctxCoef = document.getElementById('chartImportance').getContext('2d');
-    coefChart = new Chart(ctxCoef, {
+    // 4. Feature Impact Bar Chart
+    coefChart = new Chart(document.getElementById('chartImportance').getContext('2d'), {
       type: 'bar',
       data: { labels: [], datasets: [] },
       options: {
-        ...commonOptions,
+        ...commonOpts,
         indexAxis: 'y',
-        plugins: {
-          ...commonOptions.plugins,
-          legend: { display: false }
-        }
+        plugins: { ...commonOpts.plugins, legend: { display: false } }
       }
     });
   }
 
   /**
-   * Set up tab and button interaction listeners
+   * Setup Dataset Switcher
    */
-  function setupEventListeners() {
-    // Algorithm tabs
-    if (elements.algoTabs) {
-      const tabs = elements.algoTabs.querySelectorAll('.algo-tab-btn');
-      tabs.forEach(btn => {
-        btn.addEventListener('click', () => {
-          tabs.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentAlgo = btn.dataset.algo;
-          updateDashboard();
-        });
-      });
-    }
-
-    // Feature count (K) buttons
-    if (elements.kSelectorGroup) {
-      const kBtns = elements.kSelectorGroup.querySelectorAll('.k-btn');
-      kBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-          kBtns.forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          currentK = parseInt(btn.dataset.k, 10);
-          updateDashboard();
-        });
-      });
-    }
-
-    // Dataset modal events
-    if (elements.btnOpenDataset) {
-      elements.btnOpenDataset.addEventListener('click', () => {
-        elements.datasetModal.style.display = 'flex';
-      });
-    }
-    if (elements.btnCloseDataset) {
-      elements.btnCloseDataset.addEventListener('click', () => {
-        elements.datasetModal.style.display = 'none';
-      });
-    }
-    window.addEventListener('click', (e) => {
-      if (e.target === elements.datasetModal) {
-        elements.datasetModal.style.display = 'none';
+  function setupDatasetSwitcher() {
+    el.btnDsStartups.addEventListener('click', () => {
+      if (currentDataset !== 'startups') {
+        el.btnDsStartups.classList.add('active');
+        el.btnDsBoston.classList.remove('active');
+        applyDataset('startups');
       }
     });
 
-    if (elements.datasetSearch) {
-      elements.datasetSearch.addEventListener('input', (e) => {
-        filterDataset(e.target.value.toLowerCase());
-      });
-    }
+    el.btnDsBoston.addEventListener('click', () => {
+      if (currentDataset !== 'boston') {
+        el.btnDsBoston.classList.add('active');
+        el.btnDsStartups.classList.remove('active');
+        applyDataset('boston');
+      }
+    });
   }
 
   /**
-   * Main dashboard update routine triggered on algorithm or K change
+   * Switch Active Dataset Configuration
+   */
+  function applyDataset(dsKey) {
+    currentDataset = dsKey;
+    const cfg = window.DATASETS_CONFIG[dsKey];
+    if (!cfg) return;
+
+    // 1. Update Header & Hero Elements
+    el.brandTitle.textContent = cfg.fullName;
+    el.brandBadge.textContent = cfg.badge;
+    el.heroTitle.innerHTML = `<i class="fa-solid fa-microchip" style="color:var(--cyan-neon)"></i> ${cfg.fullName}`;
+    el.heroDesc.textContent = cfg.description;
+    el.heroTags.innerHTML = cfg.tags.map(t => `<span class="hero-tag">${t}</span>`).join('');
+    el.btnOpenDatasetText.textContent = `瀏覽資料集 (${cfg.recordCount}筆)`;
+    el.datasetModalTitle.textContent = `${cfg.name} 原始數據集 (${cfg.recordCount} 筆)`;
+    el.datasetModalCount.textContent = `總計 ${cfg.recordCount} 筆紀錄`;
+    el.scatterChartTitle.textContent = `Actual vs. Predicted ${cfg.targetLabel}`;
+    el.simulatorTitle.textContent = dsKey === 'startups' ? 'Live Profit Predictor (AIoT 即時投資支出利潤模擬器)' : 'Live Boston Housing Price Predictor (波士頓房價即時預估模擬器)';
+    el.targetValLabel.textContent = dsKey === 'startups' ? '即時預測利潤 (Predicted Profit)' : '即時預測房價中位數 (Predicted MEDV)';
+    el.waterfallHeader.textContent = dsKey === 'startups' ? '利潤貢獻來源拆解 (Contribution Waterfall)' : '房價特徵影響拆解 (Feature Impact Waterfall)';
+    el.coefCardTag.textContent = dsKey === 'startups' ? 'Two Dummies: CA=Baseline (FL=0, NY=0)' : 'Features: RM, LSTAT, PTRATIO, DIS, etc.';
+
+    // 2. Render Dynamic Simulator Inputs
+    renderSimulatorInputs(cfg);
+
+    // 3. Render Modal Table Headers & Data
+    renderModalStructure(cfg);
+
+    // 4. Reset K & Refresh Dashboard
+    currentAlgo = 'Forward SFS';
+    currentK = 1;
+    
+    // Reset active buttons in UI
+    el.algoTabs.querySelectorAll('.algo-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.algo === currentAlgo);
+    });
+    el.kSelectorGroup.querySelectorAll('.k-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.k, 10) === currentK);
+    });
+
+    updateDashboard();
+  }
+
+  /**
+   * Setup Algorithm & K Selector Buttons
+   */
+  function setupAlgorithmsAndK() {
+    el.algoTabs.querySelectorAll('.algo-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        el.algoTabs.querySelectorAll('.algo-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentAlgo = btn.dataset.algo;
+        updateDashboard();
+      });
+    });
+
+    el.kSelectorGroup.querySelectorAll('.k-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        el.kSelectorGroup.querySelectorAll('.k-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentK = parseInt(btn.dataset.k, 10);
+        updateDashboard();
+      });
+    });
+  }
+
+  /**
+   * Render Interactive Simulator Sliders & Presets based on Active Dataset
+   */
+  function renderSimulatorInputs(cfg) {
+    const sim = cfg.simulator;
+    let html = '';
+
+    sim.sliders.forEach(s => {
+      const defaultValFormatted = currentDataset === 'startups' ? fmtCurrency(s.default) : s.default.toFixed(1);
+      html += `
+        <div class="slider-group">
+          <div class="slider-label-row">
+            <span class="slider-title">
+              <i class="fa-solid ${s.icon}" style="color:${s.color}"></i>
+              ${s.label}
+            </span>
+            <span class="slider-val-box" id="disp_${s.id}">${defaultValFormatted}</span>
+          </div>
+          <input type="range" class="cyber-range sim-slider" id="${s.id}" min="${s.min}" max="${s.max}" step="${s.step}" value="${s.default}">
+        </div>
+      `;
+    });
+
+    // If 50 Startups, add State Selector Pills
+    if (sim.type === 'startups') {
+      html += `
+        <div class="slider-group" style="margin-bottom:10px">
+          <div class="slider-label-row">
+            <span class="slider-title">
+              <i class="fa-solid fa-location-dot" style="color:var(--rose-neon)"></i>
+              Startup Location (所在州別)
+            </span>
+          </div>
+          <div class="state-selector-pills">
+            <button class="state-btn active" data-state="California">
+              <i class="fa-solid fa-sun"></i> California (基準組)
+            </button>
+            <button class="state-btn" data-state="Florida">
+              <i class="fa-solid fa-umbrella-beach"></i> Florida
+            </button>
+            <button class="state-btn" data-state="New York">
+              <i class="fa-solid fa-city"></i> New York
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Presets Row
+    html += `
+      <div class="presets-row">
+        <span style="font-size:12px; color:var(--text-dim); font-weight:600">快速情境預設：</span>
+    `;
+    sim.presets.forEach(p => {
+      html += `<button class="preset-btn sim-preset-btn" data-preset='${JSON.stringify(p)}'>${p.name}</button>`;
+    });
+    html += `</div>`;
+
+    el.simulatorControls.innerHTML = html;
+
+    // Attach slider event listeners
+    sim.sliders.forEach(s => {
+      const sliderEl = document.getElementById(s.id);
+      const dispEl = document.getElementById(`disp_${s.id}`);
+      sliderEl.addEventListener('input', () => {
+        dispEl.textContent = currentDataset === 'startups' ? fmtCurrency(Number(sliderEl.value)) : Number(sliderEl.value).toFixed(1);
+        calculateLivePrediction();
+      });
+    });
+
+    // Attach state buttons listeners
+    if (sim.type === 'startups') {
+      const stateBtns = el.simulatorControls.querySelectorAll('.state-btn');
+      stateBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          stateBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentStartupState = btn.dataset.state;
+          calculateLivePrediction();
+        });
+      });
+    }
+
+    // Attach preset buttons listeners
+    const presetBtns = el.simulatorControls.querySelectorAll('.sim-preset-btn');
+    presetBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const p = JSON.parse(btn.dataset.preset);
+        if (sim.type === 'startups') {
+          document.getElementById('sliderRd').value = p.rd;
+          document.getElementById('disp_sliderRd').textContent = fmtCurrency(p.rd);
+          document.getElementById('sliderAdmin').value = p.admin;
+          document.getElementById('disp_sliderAdmin').textContent = fmtCurrency(p.admin);
+          document.getElementById('sliderMarketing').value = p.mkt;
+          document.getElementById('disp_sliderMarketing').textContent = fmtCurrency(p.mkt);
+          
+          currentStartupState = p.state;
+          el.simulatorControls.querySelectorAll('.state-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.state === p.state);
+          });
+        } else {
+          document.getElementById('sliderLstat').value = p.lstat;
+          document.getElementById('disp_sliderLstat').textContent = Number(p.lstat).toFixed(1);
+          document.getElementById('sliderRm').value = p.rm;
+          document.getElementById('disp_sliderRm').textContent = Number(p.rm).toFixed(1);
+          document.getElementById('sliderPtratio').value = p.ptratio;
+          document.getElementById('disp_sliderPtratio').textContent = Number(p.ptratio).toFixed(1);
+          document.getElementById('sliderDis').value = p.dis;
+          document.getElementById('disp_sliderDis').textContent = Number(p.dis).toFixed(1);
+        }
+        calculateLivePrediction();
+      });
+    });
+  }
+
+  /**
+   * Main Dashboard Update Routine
    */
   function updateDashboard() {
-    const algoData = window.MODEL_DATA[currentAlgo];
-    if (!algoData) return;
+    const cfg = window.DATASETS_CONFIG[currentDataset];
+    if (!cfg) return;
 
-    // Find the model step matching currentK
-    const modelStep = algoData.find(s => s.k === currentK) || algoData[0];
+    const algoModels = cfg.models[currentAlgo];
+    if (!algoModels) return;
 
-    updateMetricsHUD(modelStep);
-    updateEquationHUD(modelStep);
-    updateCoefficientsTable(modelStep);
-    updateOutliersTable(modelStep);
-    updateTrajectoryCharts();
-    updateDiagnosticCharts(modelStep);
+    const step = algoModels.find(s => s.k === currentK) || algoModels[0];
+
+    updateMetricsHUD(step, cfg);
+    updateEquationHUD(step);
+    updateCoefficientsTable(step);
+    updateOutliersTable(step);
+    updateTrajectoryCharts(cfg);
+    updateDiagnosticCharts(step, cfg);
     calculateLivePrediction();
   }
 
   /**
-   * Update Key Performance Indicators in HUD
+   * Update KPI Cards in HUD
    */
-  function updateMetricsHUD(step) {
-    elements.metricRmse.textContent = fmtCurrency(step.rmse);
-    elements.metricMae.textContent = fmtCurrency(step.mae);
-    elements.metricR2.textContent = (step.r2 * 100).toFixed(2) + '%';
-    elements.metricAdjR2.textContent = (step.adj_r2 * 100).toFixed(2) + '%';
-    
-    // F-Stat and p-value
-    elements.metricFstat.textContent = step.f_stat ? step.f_stat.toFixed(1) : 'N/A';
-
-    // Parsimony and Status Guidance
-    const cardParsimony = document.getElementById('cardParsimony');
-    if (currentK === 1) {
-      elements.metricParsimony.textContent = '★ 1-SE Choice';
-      elements.metricParsimony.style.color = '#00f0ff';
-      elements.metricParsimonyDesc.textContent = 'Occam’s razor: Simplest robust model, zero multicollinearity.';
-      cardParsimony.className = 'cyber-metric-card parsimony';
-    } else if (currentK === 2) {
-      elements.metricParsimony.textContent = '★ Sweet Spot';
-      elements.metricParsimony.style.color = '#00ffaa';
-      elements.metricParsimonyDesc.textContent = 'Minimum RMSE ($8,198) with highest explainability.';
-      cardParsimony.className = 'cyber-metric-card sweet';
-    } else if (currentK === 5) {
-      elements.metricParsimony.textContent = 'Overfitting Risk';
-      elements.metricParsimony.style.color = '#ffb703';
-      elements.metricParsimonyDesc.textContent = 'Admin & state dummies increase variance without gain.';
-      cardParsimony.className = 'cyber-metric-card alert';
+  function updateMetricsHUD(step, cfg) {
+    if (cfg.isCurrency) {
+      el.metricRmse.textContent = fmtCurrency(step.rmse);
+      el.metricMae.textContent = fmtCurrency(step.mae);
     } else {
-      elements.metricParsimony.textContent = 'Diminishing Returns';
-      elements.metricParsimony.style.color = '#cbd5e1';
-      elements.metricParsimonyDesc.textContent = `Adding ${currentK} features yields negligible gain over K=2.`;
-      cardParsimony.className = 'cyber-metric-card';
+      el.metricRmse.textContent = step.rmse.toFixed(3);
+      el.metricMae.textContent = step.mae.toFixed(3);
+    }
+
+    el.metricR2.textContent = (step.r2 * 100).toFixed(2) + '%';
+    el.metricAdjR2.textContent = (step.adj_r2 * 100).toFixed(2) + '%';
+    el.metricFstat.textContent = step.f_stat ? step.f_stat.toFixed(1) : 'N/A';
+
+    // Status description
+    if (currentDataset === 'startups') {
+      el.metricR2Desc.textContent = step.r2 >= 0.90 ? '目標門檻 ≥ 90% (✅ 達成)' : '接近門檻 90%';
+      if (currentK === 1) {
+        el.metricParsimony.textContent = '★ 1-SE Choice';
+        el.metricParsimony.style.color = 'var(--cyan-neon)';
+        el.metricParsimonyDesc.textContent = '奧坎剃刀原則：最簡穩健模型，零多重共線性。';
+        el.cardParsimony.className = 'cyber-metric-card parsimony';
+      } else if (currentK === 2) {
+        el.metricParsimony.textContent = '★ Sweet Spot';
+        el.metricParsimony.style.color = 'var(--emerald-neon)';
+        el.metricParsimonyDesc.textContent = '最低 RMSE 甜蜜點（研發 + 行銷支出）。';
+        el.cardParsimony.className = 'cyber-metric-card sweet';
+      } else if (currentK === 5) {
+        el.metricParsimony.textContent = 'Overfitting Risk';
+        el.metricParsimony.style.color = 'var(--amber-neon)';
+        el.metricParsimonyDesc.textContent = '全特徵 Model B：引入行政與州別，多重共線性風險。';
+        el.cardParsimony.className = 'cyber-metric-card alert';
+      } else {
+        el.metricParsimony.textContent = 'Diminishing Returns';
+        el.metricParsimony.style.color = '#cbd5e1';
+        el.metricParsimonyDesc.textContent = `加入第 ${currentK} 個特徵後邊際效益遞減。`;
+        el.cardParsimony.className = 'cyber-metric-card';
+      }
+    } else {
+      el.metricR2Desc.textContent = `解釋力 R² = ${(step.r2 * 100).toFixed(1)}%`;
+      if (currentK === 2) {
+        el.metricParsimony.textContent = '★ Optimal 2-Feat';
+        el.metricParsimony.style.color = 'var(--emerald-neon)';
+        el.metricParsimonyDesc.textContent = 'LSTAT + RM 兩大核心特徵即解釋 64% 房價變異。';
+        el.cardParsimony.className = 'cyber-metric-card sweet';
+      } else if (currentK >= 4) {
+        el.metricParsimony.textContent = 'Robust Multi-Var';
+        el.metricParsimony.style.color = 'var(--cyan-neon)';
+        el.metricParsimonyDesc.textContent = '綜合納入教育師生比與就業中心交通距離。';
+        el.cardParsimony.className = 'cyber-metric-card parsimony';
+      } else {
+        el.metricParsimony.textContent = 'Baseline Model';
+        el.metricParsimony.style.color = '#cbd5e1';
+        el.metricParsimonyDesc.textContent = '以單一主力特徵進行初步價格基線評估。';
+        el.cardParsimony.className = 'cyber-metric-card';
+      }
     }
   }
 
   /**
-   * Update the mathematical regression equation display
+   * Update Mathematical Equation Terminal
    */
   function updateEquationHUD(step) {
     const coefMap = {};
     step.coefficients.forEach(c => { coefMap[c.feature] = c.coef; });
-    const b0 = coefMap['Intercept (\u03b2\u2080)'] || 0;
+    const b0 = coefMap['Intercept (β₀)'] || 0;
 
-    let eqHtml = `<span class="eq-prefix">ŷ (Profit) =</span> <span class="eq-coef">${fmtCurrency(b0)}</span>`;
+    const b0Formatted = currentDataset === 'startups' ? fmtCurrency(b0) : b0.toFixed(2);
+    let eqHtml = `<span class="eq-prefix">ŷ (${currentDataset === 'startups' ? 'Profit' : 'MEDV'}) =</span> <span class="eq-coef">${b0Formatted}</span>`;
 
     step.features.forEach(feat => {
       const val = coefMap[feat] || 0;
       const sign = val >= 0 ? '+' : '-';
       const absVal = Math.abs(val);
-      eqHtml += ` ${sign} <span class="eq-coef">${absVal >= 10 ? fmtNumber(absVal, 2) : absVal.toFixed(4)}</span> × <span class="eq-var">${feat}</span>`;
+      const valStr = absVal >= 10 ? fmtNumber(absVal, 2) : absVal.toFixed(4);
+      eqHtml += ` ${sign} <span class="eq-coef">${valStr}</span> × <span class="eq-var">${feat}</span>`;
     });
 
-    elements.eqContainer.innerHTML = eqHtml;
+    el.eqContainer.innerHTML = eqHtml;
   }
 
   /**
-   * Update the coefficients and statistical tests table
+   * Update Coefficients & VIF Table
    */
   function updateCoefficientsTable(step) {
     let rowsHtml = '';
@@ -349,7 +524,6 @@
           ? `<span class="p-sig-badge">${c.pvalue.toFixed(4)} ★</span>` 
           : `<span style="color:#64748b">${c.pvalue.toFixed(4)} (ns)</span>`;
 
-      // VIF assessment
       let vifHtml = '<span style="color:#64748b">—</span>';
       if (c.vif !== null && c.vif !== undefined) {
         if (c.vif < 3) {
@@ -357,13 +531,13 @@
         } else if (c.vif <= 10) {
           vifHtml = `<span class="vif-warn">${c.vif.toFixed(2)} (Moderate)</span>`;
         } else {
-          vifHtml = `<span class="vif-danger">${c.vif.toFixed(2)} (Severe Collinear)</span>`;
+          vifHtml = `<span class="vif-danger">${c.vif.toFixed(2)} (Severe)</span>`;
         }
       }
 
       rowsHtml += `
         <tr>
-          <td style="font-weight:600; color:${isIntercept ? '#94a3b8' : '#00f0ff'}">
+          <td style="font-weight:600; color:${isIntercept ? '#94a3b8' : 'var(--cyan-neon)'}">
             ${isIntercept ? '<i class="fa-solid fa-anchor" style="margin-right:6px"></i>' : '<i class="fa-solid fa-code-commit" style="margin-right:6px"></i>'}
             ${c.feature}
           </td>
@@ -377,11 +551,11 @@
       `;
     });
 
-    elements.coefTableBody.innerHTML = rowsHtml;
+    el.coefTableBody.innerHTML = rowsHtml;
   }
 
   /**
-   * Update the Top 10 Outliers Diagnostic table
+   * Update Outliers Diagnostic Table
    */
   function updateOutliersTable(step) {
     if (!step.outliers || !step.outliers.length) return;
@@ -392,40 +566,43 @@
       const resColor = isPositive ? 'var(--emerald-neon)' : 'var(--rose-neon)';
       const rankBadge = o.rank === 1 ? 'color: var(--amber-neon); font-weight:700;' : '';
 
+      const actStr = currentDataset === 'startups' ? fmtCurrency(o.actual) : '$' + o.actual.toFixed(1) + 'k';
+      const prdStr = currentDataset === 'startups' ? fmtCurrency(o.predicted) : '$' + o.predicted.toFixed(1) + 'k';
+      const resStr = currentDataset === 'startups' ? (isPositive ? '+' : '') + fmtCurrency(o.residual) : (isPositive ? '+' : '') + o.residual.toFixed(2) + 'k';
+      const absStr = currentDataset === 'startups' ? fmtCurrency(o.abs_error) : o.abs_error.toFixed(2) + 'k';
+
       rowsHtml += `
         <tr>
           <td style="${rankBadge}">#${o.rank}</td>
-          <td class="mono" style="color:var(--cyan-neon)">Startup [${o.index}]</td>
-          <td class="mono" style="font-weight:600; color:#fff">${fmtCurrency(o.actual)}</td>
-          <td class="mono" style="color:#94a3b8">${fmtCurrency(o.predicted)}</td>
-          <td class="mono" style="color:${resColor}; font-weight:600">${isPositive ? '+' : ''}${fmtCurrency(o.residual)}</td>
-          <td class="mono" style="color:#cbd5e1">${fmtCurrency(o.abs_error)}</td>
+          <td class="mono" style="color:var(--cyan-neon)">Sample [${o.index}]</td>
+          <td class="mono" style="font-weight:600; color:#fff">${actStr}</td>
+          <td class="mono" style="color:#94a3b8">${prdStr}</td>
+          <td class="mono" style="color:${resColor}; font-weight:600">${resStr}</td>
+          <td class="mono" style="color:#cbd5e1">${absStr}</td>
           <td>
-            <span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:4px; font-weight:600; font-family:monospace; color:${o.pct_error > 10 ? 'var(--rose-neon)' : 'var(--text-muted)'}">
-              ${o.pct_error.toFixed(2)}%
+            <span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:4px; font-weight:600; font-family:monospace; color:${o.pct_error > 15 ? 'var(--rose-neon)' : 'var(--text-muted)'}">
+              ${o.pct_error.toFixed(1)}%
             </span>
           </td>
         </tr>
       `;
     });
 
-    elements.outlierTableBody.innerHTML = rowsHtml;
+    el.outlierTableBody.innerHTML = rowsHtml;
   }
 
   /**
-   * Update RMSE & R² Multi-Algorithm Trajectory Charts
+   * Update Trajectory Line Charts (RMSE & R²)
    */
-  function updateTrajectoryCharts() {
+  function updateTrajectoryCharts(cfg) {
     const labels = [1, 2, 3, 4, 5].map(k => `K=${k}`);
-
-    // Datasets for all algorithms to show comparative benchmark
     const rmseDatasets = [];
     const r2Datasets = [];
 
-    Object.keys(window.MODEL_DATA).forEach(algo => {
+    Object.keys(cfg.models).forEach(algo => {
       const isCurrent = (algo === currentAlgo);
       const color = ALGO_COLORS[algo] || '#6366f1';
-      const steps = window.MODEL_DATA[algo];
+      const steps = cfg.models[algo];
 
       rmseDatasets.push({
         label: algo,
@@ -456,6 +633,7 @@
 
     rmseChart.data.labels = labels;
     rmseChart.data.datasets = rmseDatasets;
+    rmseChart.options.scales.y.ticks.callback = (v) => currentDataset === 'startups' ? '$' + (v / 1000).toFixed(0) + 'k' : v.toFixed(1);
     rmseChart.update();
 
     r2Chart.data.labels = labels;
@@ -464,9 +642,9 @@
   }
 
   /**
-   * Update Actual vs Predicted Scatter and Feature Importance Bar Chart
+   * Update Scatter Chart and Feature Impact Bar Chart
    */
-  function updateDiagnosticCharts(step) {
+  function updateDiagnosticCharts(step, cfg) {
     // 1. Scatter Chart
     const points = step.all_points || [];
     const outlierIndices = new Set((step.outliers || []).slice(0, 5).map(o => o.index));
@@ -483,7 +661,6 @@
       }
     });
 
-    // Min & Max bounds for regression line y = x
     const allVals = points.map(p => p.actual).concat(points.map(p => p.predicted));
     const minVal = Math.floor(Math.min(...allVals) * 0.9);
     const maxVal = Math.ceil(Math.max(...allVals) * 1.05);
@@ -501,12 +678,12 @@
       },
       {
         type: 'scatter',
-        label: 'Normal Startups (50 Dataset)',
+        label: `Normal Samples (${cfg.name})`,
         data: normalData,
         backgroundColor: 'rgba(0, 240, 255, 0.75)',
         borderColor: '#00f0ff',
-        pointRadius: 5,
-        pointHoverRadius: 8
+        pointRadius: currentDataset === 'startups' ? 5 : 3.5,
+        pointHoverRadius: 7
       },
       {
         type: 'scatter',
@@ -520,21 +697,35 @@
       }
     ];
 
+    scatterChart.options.scales.x.title.text = `Predicted ${cfg.targetLabel}`;
+    scatterChart.options.scales.y.title.text = `Actual ${cfg.targetLabel}`;
+    scatterChart.options.scales.x.ticks.callback = (v) => currentDataset === 'startups' ? '$' + (v / 1000).toFixed(0) + 'k' : '$' + v.toFixed(0) + 'k';
+    scatterChart.options.scales.y.ticks.callback = (v) => currentDataset === 'startups' ? '$' + (v / 1000).toFixed(0) + 'k' : '$' + v.toFixed(0) + 'k';
+
     scatterChart.options.plugins.tooltip.callbacks = {
       label: (ctx) => {
         const raw = ctx.raw;
         if (!raw.index && raw.index !== 0) return 'Reference Line';
-        return [
-          `Startup #${raw.index} (${raw.state})`,
-          `Actual: ${fmtCurrency(raw.y)}`,
-          `Predicted: ${fmtCurrency(raw.x)}`,
-          `Residual: ${raw.residual >= 0 ? '+' : ''}${fmtCurrency(raw.residual)}`
-        ];
+        if (currentDataset === 'startups') {
+          return [
+            `Startup #${raw.index} (${raw.state})`,
+            `Actual: ${fmtCurrency(raw.y)}`,
+            `Predicted: ${fmtCurrency(raw.x)}`,
+            `Residual: ${raw.residual >= 0 ? '+' : ''}${fmtCurrency(raw.residual)}`
+          ];
+        } else {
+          return [
+            `Sample #${raw.index}`,
+            `Actual MEDV: $${raw.y.toFixed(1)}k`,
+            `Predicted MEDV: $${raw.x.toFixed(1)}k`,
+            `Residual: ${raw.residual >= 0 ? '+' : ''}${raw.residual.toFixed(2)}k`
+          ];
+        }
       }
     };
     scatterChart.update();
 
-    // 2. Feature Importance / Coefficients Bar Chart
+    // 2. Feature Impact Bar Chart
     const featureCoefs = step.coefficients.filter(c => !c.feature.includes('Intercept'));
     coefChart.data.labels = featureCoefs.map(c => c.feature);
     coefChart.data.datasets = [{
@@ -548,138 +739,152 @@
   }
 
   /**
-   * Set up Live Profit Predictor Simulator
-   */
-  function setupSimulator() {
-    // Slider bindings
-    const bindSlider = (slider, display, prefix = '$', isCurrency = true) => {
-      slider.addEventListener('input', () => {
-        display.textContent = isCurrency ? fmtCurrency(Number(slider.value)) : slider.value;
-        calculateLivePrediction();
-      });
-    };
-
-    bindSlider(elements.sliderRd, elements.valRd);
-    bindSlider(elements.sliderAdmin, elements.valAdmin);
-    bindSlider(elements.sliderMarketing, elements.valMarketing);
-
-    // State radio buttons
-    elements.stateButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        elements.stateButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentState = btn.dataset.state;
-        calculateLivePrediction();
-      });
-    });
-
-    // Preset configurations
-    elements.presetButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const p = btn.dataset;
-        elements.sliderRd.value = p.rd;
-        elements.valRd.textContent = fmtCurrency(Number(p.rd));
-        elements.sliderAdmin.value = p.admin;
-        elements.valAdmin.textContent = fmtCurrency(Number(p.admin));
-        elements.sliderMarketing.value = p.mkt;
-        elements.valMarketing.textContent = fmtCurrency(Number(p.mkt));
-
-        elements.stateButtons.forEach(b => {
-          b.classList.toggle('active', b.dataset.state === p.state);
-        });
-        currentState = p.state;
-        calculateLivePrediction();
-      });
-    });
-  }
-
-  /**
-   * Perform real-time live profit prediction and waterfall breakdown
+   * Real-Time Live Simulator Prediction
    */
   function calculateLivePrediction() {
-    const algoData = window.MODEL_DATA[currentAlgo];
-    if (!algoData) return;
-    const modelStep = algoData.find(s => s.k === currentK) || algoData[0];
+    const cfg = window.DATASETS_CONFIG[currentDataset];
+    if (!cfg) return;
 
-    const rd = parseFloat(elements.sliderRd.value);
-    const admin = parseFloat(elements.sliderAdmin.value);
-    const mkt = parseFloat(elements.sliderMarketing.value);
-    const isFL = (currentState === 'Florida') ? 1 : 0;
-    const isNY = (currentState === 'New York') ? 1 : 0;
+    const algoModels = cfg.models[currentAlgo];
+    if (!algoModels) return;
+    const modelStep = algoModels.find(s => s.k === currentK) || algoModels[0];
 
     const coefMap = {};
     modelStep.coefficients.forEach(c => { coefMap[c.feature] = c.coef; });
-
-    const intercept = coefMap['Intercept (\u03b2\u2080)'] || 0;
-    let predictedProfit = intercept;
+    const intercept = coefMap['Intercept (β₀)'] || 0;
+    let predicted = intercept;
 
     const contributions = [
       { name: 'Baseline Intercept (β₀)', val: intercept, active: true, type: 'base' }
     ];
 
-    // R&D Spend
-    if (coefMap['R&D Spend'] !== undefined) {
-      const v = coefMap['R&D Spend'] * rd;
-      predictedProfit += v;
-      contributions.push({ name: 'R&D Spend Impact', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
+    if (currentDataset === 'startups') {
+      const rd = parseFloat(document.getElementById('sliderRd').value);
+      const admin = parseFloat(document.getElementById('sliderAdmin').value);
+      const mkt = parseFloat(document.getElementById('sliderMarketing').value);
+      const isFL = (currentStartupState === 'Florida') ? 1 : 0;
+      const isNY = (currentStartupState === 'New York') ? 1 : 0;
+
+      // R&D
+      if (coefMap['R&D Spend'] !== undefined) {
+        const v = coefMap['R&D Spend'] * rd;
+        predicted += v;
+        contributions.push({ name: 'R&D Spend Impact', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
+      } else {
+        contributions.push({ name: 'R&D Spend', val: 0, active: false, note: 'Excluded in Model' });
+      }
+
+      // Marketing
+      if (coefMap['Marketing Spend'] !== undefined) {
+        const v = coefMap['Marketing Spend'] * mkt;
+        predicted += v;
+        contributions.push({ name: 'Marketing Spend Impact', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
+      } else {
+        contributions.push({ name: 'Marketing Spend', val: 0, active: false, note: 'Excluded in Model' });
+      }
+
+      // Admin
+      if (coefMap['Administration'] !== undefined) {
+        const v = coefMap['Administration'] * admin;
+        predicted += v;
+        contributions.push({ name: 'Administration Impact', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
+      } else {
+        contributions.push({ name: 'Administration', val: 0, active: false, note: 'Excluded in Model' });
+      }
+
+      // State Dummies
+      if (coefMap['State_Florida'] !== undefined && isFL) {
+        const v = coefMap['State_Florida'] * 1;
+        predicted += v;
+        contributions.push({ name: 'State: Florida Premium', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
+      }
+      if (coefMap['State_New York'] !== undefined && isNY) {
+        const v = coefMap['State_New York'] * 1;
+        predicted += v;
+        contributions.push({ name: 'State: New York Premium', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
+      }
+      if (currentStartupState === 'California') {
+        contributions.push({ name: 'State: California (Baseline)', val: 0, active: true, type: 'base' });
+      }
+
+      el.liveProfitVal.textContent = fmtCurrency(predicted);
+
+      const medianStartups = 107978;
+      const diffPct = ((predicted - medianStartups) / medianStartups) * 100;
+      el.profitComparison.innerHTML = `
+        <span style="color:${diffPct >= 0 ? 'var(--emerald-neon)' : 'var(--rose-neon)'}; font-weight:700">
+          ${diffPct >= 0 ? '+' : ''}${diffPct.toFixed(1)}%
+        </span> 與歷史新創利潤中位數 ($107,978) 比較
+      `;
     } else {
-      contributions.push({ name: 'R&D Spend', val: 0, active: false, note: 'Excluded in Model' });
-    }
+      // Boston Housing
+      const lstat = parseFloat(document.getElementById('sliderLstat').value);
+      const rm = parseFloat(document.getElementById('sliderRm').value);
+      const ptratio = parseFloat(document.getElementById('sliderPtratio').value);
+      const dis = parseFloat(document.getElementById('sliderDis').value);
 
-    // Marketing Spend
-    if (coefMap['Marketing Spend'] !== undefined) {
-      const v = coefMap['Marketing Spend'] * mkt;
-      predictedProfit += v;
-      contributions.push({ name: 'Marketing Spend Impact', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
-    } else {
-      contributions.push({ name: 'Marketing Spend', val: 0, active: false, note: 'Excluded in Model' });
-    }
+      if (coefMap['lstat'] !== undefined) {
+        const v = coefMap['lstat'] * lstat;
+        predicted += v;
+        contributions.push({ name: 'LSTAT (低收入比例影響)', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
+      } else {
+        contributions.push({ name: 'LSTAT', val: 0, active: false, note: '未納入當前模型' });
+      }
 
-    // Administration
-    if (coefMap['Administration'] !== undefined) {
-      const v = coefMap['Administration'] * admin;
-      predictedProfit += v;
-      contributions.push({ name: 'Administration Impact', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
-    } else {
-      contributions.push({ name: 'Administration', val: 0, active: false, note: 'Excluded in Model' });
-    }
+      if (coefMap['rm'] !== undefined) {
+        const v = coefMap['rm'] * rm;
+        predicted += v;
+        contributions.push({ name: 'RM (每戶房間數影響)', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
+      } else {
+        contributions.push({ name: 'RM', val: 0, active: false, note: '未納入當前模型' });
+      }
 
-    // State Dummies
-    if (coefMap['State_Florida'] !== undefined && isFL) {
-      const v = coefMap['State_Florida'] * 1;
-      predictedProfit += v;
-      contributions.push({ name: 'State: Florida Premium', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
-    }
-    if (coefMap['State_New York'] !== undefined && isNY) {
-      const v = coefMap['State_New York'] * 1;
-      predictedProfit += v;
-      contributions.push({ name: 'State: New York Premium', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
-    }
-    if (currentState === 'California') {
-      contributions.push({ name: 'State: California (Baseline)', val: 0, active: true, type: 'base' });
-    }
+      if (coefMap['ptratio'] !== undefined) {
+        const v = coefMap['ptratio'] * ptratio;
+        predicted += v;
+        contributions.push({ name: 'PTRATIO (師生比影響)', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
+      } else {
+        contributions.push({ name: 'PTRATIO', val: 0, active: false, note: '未納入當前模型' });
+      }
 
-    // Update Output Numbers
-    elements.liveProfitVal.textContent = fmtCurrency(predictedProfit);
+      if (coefMap['dis'] !== undefined) {
+        const v = coefMap['dis'] * dis;
+        predicted += v;
+        contributions.push({ name: 'DIS (就業中心距離影響)', val: v, active: true, type: v >= 0 ? 'pos' : 'neg' });
+      } else {
+        contributions.push({ name: 'DIS', val: 0, active: false, note: '未納入當前模型' });
+      }
 
-    // Benchmark comparison (Median 50 Startup Profit = $107,978)
-    const medianProfit = 107978;
-    const diffPct = ((predictedProfit - medianProfit) / medianProfit) * 100;
-    const diffSign = diffPct >= 0 ? '+' : '';
-    elements.profitComparison.innerHTML = `
-      <span style="color: ${diffPct >= 0 ? 'var(--emerald-neon)' : 'var(--rose-neon)'}; font-weight:700">
-        ${diffSign}${diffPct.toFixed(1)}%
-      </span> compared to historical median startup ($107,978)
-    `;
+      // Check other features if in step
+      ['nox', 'tax', 'crim', 'chas'].forEach(otherF => {
+        if (coefMap[otherF] !== undefined) {
+          contributions.push({ name: `${otherF.toUpperCase()} 特徵項`, val: coefMap[otherF], active: true, type: coefMap[otherF] >= 0 ? 'pos' : 'neg' });
+        }
+      });
+
+      // Clamp predicted home price to >= 5
+      predicted = Math.max(5.0, predicted);
+      el.liveProfitVal.textContent = `$${predicted.toFixed(2)}k`;
+
+      const medianBoston = 21.2;
+      const diffPct = ((predicted - medianBoston) / medianBoston) * 100;
+      el.profitComparison.innerHTML = `
+        折合約 <strong>$${Math.round(predicted * 1000).toLocaleString('en-US')} 美元</strong> 
+        (<span style="color:${diffPct >= 0 ? 'var(--emerald-neon)' : 'var(--rose-neon)'}; font-weight:700">
+          ${diffPct >= 0 ? '+' : ''}${diffPct.toFixed(1)}%
+        </span> 與波士頓房價中位數 $21.2k 比較)
+      `;
+    }
 
     // Render Waterfall Breakdown
     let wfHtml = '';
     contributions.forEach(c => {
+      const valStr = currentDataset === 'startups' ? fmtCurrency(c.val) : '$' + c.val.toFixed(2) + 'k';
       if (c.active) {
         wfHtml += `
           <div class="waterfall-item">
             <span class="wf-name">${c.name}</span>
-            <span class="wf-val ${c.type}">${c.val >= 0 ? '+' : ''}${fmtCurrency(c.val)}</span>
+            <span class="wf-val ${c.type}">${c.val >= 0 ? '+' : ''}${valStr}</span>
           </div>
         `;
       } else {
@@ -691,41 +896,100 @@
         `;
       }
     });
-    elements.waterfallList.innerHTML = wfHtml;
+    el.waterfallList.innerHTML = wfHtml;
   }
 
   /**
-   * Populate Raw Dataset Modal with all 50 records
+   * Setup Modal Structure & Search
    */
-  function populateDatasetModal() {
-    if (!window.STARTUP_DATA) return;
-    renderDatasetRows(window.STARTUP_DATA);
+  function setupModal() {
+    el.btnOpenDataset.addEventListener('click', () => {
+      el.datasetModal.style.display = 'flex';
+    });
+    el.btnCloseDataset.addEventListener('click', () => {
+      el.datasetModal.style.display = 'none';
+    });
+    window.addEventListener('click', (e) => {
+      if (e.target === el.datasetModal) el.datasetModal.style.display = 'none';
+    });
+    el.datasetSearch.addEventListener('input', (e) => {
+      filterModalDataset(e.target.value.toLowerCase());
+    });
   }
 
-  function renderDatasetRows(data) {
-    let rowsHtml = '';
-    data.forEach(r => {
-      rowsHtml += `
+  function renderModalStructure(cfg) {
+    if (cfg.id === 'startups') {
+      el.datasetModalHead.innerHTML = `
         <tr>
-          <td class="mono" style="color:var(--cyan-neon)">#${r.Index}</td>
-          <td><span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:4px">${r.State}</span></td>
-          <td class="mono" style="color:#fff">${fmtCurrency(r['R&D Spend'])}</td>
-          <td class="mono" style="color:#94a3b8">${fmtCurrency(r['Administration'])}</td>
-          <td class="mono" style="color:#94a3b8">${fmtCurrency(r['Marketing Spend'])}</td>
-          <td class="mono" style="font-weight:700; color:var(--emerald-neon)">${fmtCurrency(r['Profit'])}</td>
+          <th>Index</th>
+          <th>State</th>
+          <th>R&amp;D Spend</th>
+          <th>Administration</th>
+          <th>Marketing Spend</th>
+          <th>Actual Profit</th>
         </tr>
       `;
-    });
-    elements.datasetTableBody.innerHTML = rowsHtml;
+    } else {
+      el.datasetModalHead.innerHTML = `
+        <tr>
+          <th>Index</th>
+          <th>CRIM</th>
+          <th>RM</th>
+          <th>AGE</th>
+          <th>DIS</th>
+          <th>TAX</th>
+          <th>PTRATIO</th>
+          <th>LSTAT</th>
+          <th>MEDV (房價)</th>
+        </tr>
+      `;
+    }
+    renderModalRows(cfg.records);
   }
 
-  function filterDataset(query) {
-    if (!window.STARTUP_DATA) return;
-    const filtered = window.STARTUP_DATA.filter(r => 
-      r.State.toLowerCase().includes(query) ||
-      r.Index.toString().includes(query)
-    );
-    renderDatasetRows(filtered);
+  function renderModalRows(records) {
+    let rowsHtml = '';
+    records.slice(0, 100).forEach(r => {
+      if (currentDataset === 'startups') {
+        rowsHtml += `
+          <tr>
+            <td class="mono" style="color:var(--cyan-neon)">#${r.Index}</td>
+            <td><span style="background:rgba(255,255,255,0.06); padding:2px 8px; border-radius:4px">${r.State}</span></td>
+            <td class="mono" style="color:#fff">${fmtCurrency(r['R&D Spend'])}</td>
+            <td class="mono" style="color:#94a3b8">${fmtCurrency(r['Administration'])}</td>
+            <td class="mono" style="color:#94a3b8">${fmtCurrency(r['Marketing Spend'])}</td>
+            <td class="mono" style="font-weight:700; color:var(--emerald-neon)">${fmtCurrency(r['Profit'])}</td>
+          </tr>
+        `;
+      } else {
+        rowsHtml += `
+          <tr>
+            <td class="mono" style="color:var(--cyan-neon)">#${r.Index}</td>
+            <td class="mono">${r.crim.toFixed(3)}</td>
+            <td class="mono" style="font-weight:700; color:#fff">${r.rm.toFixed(2)}</td>
+            <td class="mono">${r.age.toFixed(1)}</td>
+            <td class="mono">${r.dis.toFixed(2)}</td>
+            <td class="mono">${r.tax.toFixed(0)}</td>
+            <td class="mono">${r.ptratio.toFixed(1)}</td>
+            <td class="mono" style="color:var(--rose-neon)">${r.lstat.toFixed(2)}%</td>
+            <td class="mono" style="font-weight:700; color:var(--emerald-neon)">$${r.medv.toFixed(1)}k</td>
+          </tr>
+        `;
+      }
+    });
+    if (records.length > 100) {
+      rowsHtml += `<tr><td colspan="9" style="text-align:center; color:var(--text-dim); padding:12px">... 顯示前 100 筆紀錄（共 ${records.length} 筆）...</td></tr>`;
+    }
+    el.datasetTableBody.innerHTML = rowsHtml;
+  }
+
+  function filterModalDataset(query) {
+    const cfg = window.DATASETS_CONFIG[currentDataset];
+    if (!cfg) return;
+    const filtered = cfg.records.filter(r => {
+      return Object.values(r).some(val => String(val).toLowerCase().includes(query));
+    });
+    renderModalRows(filtered);
   }
 
 })();
