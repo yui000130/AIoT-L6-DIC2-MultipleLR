@@ -46,6 +46,13 @@
     btnUploadCsvFile: document.getElementById('btnUploadCsvFile'),
     customCsvStatus: document.getElementById('customCsvStatus'),
     miniPresetBtns: document.querySelectorAll('.mini-preset-btn'),
+    pyEngineBadge: document.getElementById('pyEngineBadge'),
+    customCsvSetup: document.getElementById('customCsvSetup'),
+    customCsvSummary: document.getElementById('customCsvSummary'),
+    customTargetSelect: document.getElementById('customTargetSelect'),
+    btnRunCustomAnalysis: document.getElementById('btnRunCustomAnalysis'),
+    customColumnChips: document.getElementById('customColumnChips'),
+    customSetupWarnings: document.getElementById('customSetupWarnings'),
 
     algoTabs: document.getElementById('algoTabs'),
     kSelectorGroup: document.getElementById('kSelectorGroup'),
@@ -406,6 +413,8 @@
       setActiveDatasetCard('custom');
       el.customCsvPanel.style.display = 'block';
       el.customCsvUrlInput.focus();
+      el.brandTitle.textContent = '多元線性回歸';
+      el.heroTitle.innerHTML = `<i class="fa-solid fa-microchip" style="color:var(--cyan-neon)"></i> 多元線性回歸`;
     });
   }
 
@@ -416,18 +425,139 @@
   }
 
   /**
-   * Setup Custom CSV Loader & Parser Engine (URL + Local File Upload)
+   * Pyodide Web Worker 橋接器
+   * 透過 pyworker.js 在背景執行 csv_engine.py，不卡住 UI
+   */
+  const PyEngine = (() => {
+    let worker = null;
+    let seq = 0;
+    const pending = new Map();
+
+    function getWorker() {
+      if (worker) return worker;
+      if (location.protocol === 'file:') {
+        throw {
+          kind: 'load',
+          message: '直接雙擊開啟 index.html 無法啟動 Python 引擎',
+          hint: '請使用本機伺服器開啟（例如 http://localhost:8088/）'
+        };
+      }
+      if (typeof Worker === 'undefined') {
+        throw {
+          kind: 'load',
+          message: '這個瀏覽器不支援 Web Worker，無法執行 Python 引擎',
+          hint: '請使用最新版 Chrome、Edge、Firefox 或 Safari'
+        };
+      }
+      worker = new Worker('pyworker.js');
+      worker.onmessage = (e) => {
+        const { id, type, result, error, msg } = e.data;
+        const p = pending.get(id);
+        if (!p) return;
+        if (type === 'progress') {
+          if (typeof p.onProgress === 'function') p.onProgress(msg);
+        } else if (type === 'result') {
+          pending.delete(id);
+          p.resolve(result);
+        } else if (type === 'error') {
+          pending.delete(id);
+          p.reject(error);
+        }
+      };
+      worker.onerror = (e) => {
+        const err = {
+          kind: 'load',
+          message: 'Python 執行緒發生未預期的錯誤',
+          hint: e.message || '請確認網路連線可存取 cdn.jsdelivr.net'
+        };
+        for (const [id, p] of pending.entries()) {
+          p.reject(err);
+        }
+        pending.clear();
+      };
+      return worker;
+    }
+
+    function call(cmd, payload = {}, onProgress = null) {
+      return new Promise((resolve, reject) => {
+        try {
+          const w = getWorker();
+          const id = ++seq;
+          pending.set(id, { resolve, reject, onProgress });
+          w.postMessage({ id, cmd, ...payload });
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    return { call };
+  })();
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function setEngineBadge(state, text) {
+    if (!el.pyEngineBadge) return;
+    el.pyEngineBadge.className = 'py-engine-badge ' + state;
+    el.pyEngineBadge.innerHTML = `<i class="fa-brands fa-python"></i> ${escapeHtml(text)}`;
+  }
+
+  let warmupStarted = false;
+  function warmupPythonEngine() {
+    if (warmupStarted) return;
+    warmupStarted = true;
+    setEngineBadge('loading', 'Python 引擎：載入中…');
+    PyEngine.call('warmup', {}, (msg) => {
+      setEngineBadge('loading', 'Python 引擎：' + msg.split('…')[0] + '…');
+    }).then(() => {
+      setEngineBadge('ready', 'Python 引擎：就緒');
+    }).catch(err => {
+      console.warn('PyEngine warmup failed:', err);
+      setEngineBadge('error', 'Python 引擎：載入失敗');
+    });
+  }
+
+  // 暫存上傳的檔案位元組與檢查結果
+  let customCsvState = null;
+
+  function showCustomCsvStatus(msg, type) {
+    if (!el.customCsvStatus) return;
+    el.customCsvStatus.style.display = 'block';
+    el.customCsvStatus.className = 'custom-status-msg ' + type;
+    const icons = {
+      loading: '<i class="fa-solid fa-spinner fa-spin"></i>',
+      success: '<i class="fa-solid fa-circle-check"></i>',
+      error: '<i class="fa-solid fa-triangle-exclamation"></i>'
+    };
+    el.customCsvStatus.innerHTML = `${icons[type] || ''} <span>${msg}</span>`;
+  }
+
+  /**
+   * Setup Custom CSV Loader & Parser Engine (URL + Local File Upload + Pyodide Worker)
    */
   function setupCustomCsvLoader() {
-    // Mini Presets
+    // 預熱 Python
+    warmupPythonEngine();
+
+    // 迷你快速測試按鈕
     el.miniPresetBtns.forEach(btn => {
       btn.addEventListener('click', () => {
-        el.customCsvUrlInput.value = btn.dataset.url;
-        loadCustomCsvFromUrl(btn.dataset.url, btn.dataset.target);
+        const url = btn.dataset.url;
+        const target = btn.dataset.target;
+        el.customCsvUrlInput.value = url;
+        loadCustomCsvFromUrl(url, target);
       });
     });
 
-    // Load Button (URL)
+    // 網址載入按鈕
     el.btnLoadCustomCsv.addEventListener('click', () => {
       const url = el.customCsvUrlInput.value.trim();
       if (!url) {
@@ -437,7 +567,7 @@
       loadCustomCsvFromUrl(url);
     });
 
-    // Enter key (URL)
+    // 網址輸入框 Enter
     el.customCsvUrlInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         const url = el.customCsvUrlInput.value.trim();
@@ -445,9 +575,10 @@
       }
     });
 
-    // Local File Upload Button
+    // 本機上傳按鈕
     if (el.btnUploadCsvFile && el.customCsvFileInput) {
       el.btnUploadCsvFile.addEventListener('click', () => {
+        el.customCsvFileInput.value = '';
         el.customCsvFileInput.click();
       });
 
@@ -457,576 +588,197 @@
         loadCustomCsvFromFile(file);
       });
     }
-  }
 
-  function showCustomCsvStatus(msg, type) {
-    el.customCsvStatus.style.display = 'flex';
-    el.customCsvStatus.className = `custom-status-msg ${type}`;
-    el.customCsvStatus.innerHTML = `<i class="fa-solid ${type === 'loading' ? 'fa-spinner fa-spin' : type === 'success' ? 'fa-check' : 'fa-triangle-exclamation'}"></i> ${msg}`;
-  }
-
-  /**
-   * Multi-Proxy Fetch with Timeout Protection
-   */
-  async function fetchCsvWithMultiProxy(url) {
-    const fetchWithTimeout = async (targetUrl, ms = 7000) => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), ms);
-      try {
-        const response = await fetch(targetUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        return response;
-      } catch (err) {
-        clearTimeout(timeoutId);
-        throw err;
-      }
-    };
-
-    // 1. Direct fetch
-    try {
-      const res = await fetchWithTimeout(url, 6000);
-      if (res.ok) {
-        const text = await res.text();
-        if (text && text.trim().length > 20 && !text.includes('<!DOCTYPE html>') && !text.includes('404: Not Found')) {
-          return text;
-        }
-      }
-    } catch (e) {
-      console.warn('Direct fetch failed, trying proxy 1 (corsproxy.io)...', e);
-    }
-
-    // 2. Proxy 1: corsproxy.io (high speed)
-    try {
-      const pUrl1 = 'https://corsproxy.io/?' + encodeURIComponent(url);
-      const res1 = await fetchWithTimeout(pUrl1, 6000);
-      if (res1.ok) {
-        const text1 = await res1.text();
-        if (text1 && text1.trim().length > 20 && !text1.includes('<!DOCTYPE html>') && !text1.includes('404: Not Found')) {
-          return text1;
-        }
-      }
-    } catch (e) {
-      console.warn('Proxy 1 failed, trying proxy 2 (allorigins)...', e);
-    }
-
-    // 3. Proxy 2: allorigins.win
-    try {
-      const pUrl2 = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
-      const res2 = await fetchWithTimeout(pUrl2, 7000);
-      if (res2.ok) {
-        const text2 = await res2.text();
-        if (text2 && text2.trim().length > 20 && !text2.includes('<!DOCTYPE html>') && !text2.includes('404: Not Found')) {
-          return text2;
-        }
-      }
-    } catch (e) {
-      console.warn('Proxy 2 failed, trying proxy 3 (codetabs)...', e);
-    }
-
-    // 4. Proxy 3: codetabs
-    try {
-      const pUrl3 = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
-      const res3 = await fetchWithTimeout(pUrl3, 7000);
-      if (res3.ok) {
-        const text3 = await res3.text();
-        if (text3 && text3.trim().length > 20 && !text3.includes('<!DOCTYPE html>') && !text3.includes('404: Not Found')) {
-          return text3;
-        }
-      }
-    } catch (e) {
-      console.warn('Proxy 3 failed...', e);
-    }
-
-    throw new Error('無法從此網址讀取 CSV。可能原因：(1) 網址檔案不存在 (404) (2) 目標伺服器阻擋存取 (3) 瀏覽器本機 CORS 限制。建議點擊「本機 CSV 上傳」直接選取電腦中的 CSV 檔案，100% 免疫連線限制！');
-  }
-
-  /**
-   * Smart CSV Parsing Engine: Auto-detects delimiter & headerless data
-   */
-  function parseAndStructureCsv(rawText) {
-    if (!rawText || !rawText.trim()) {
-      throw new Error('CSV 檔案內容為空！');
-    }
-
-    const lines = rawText.trim().split(/\r\n|\n|\r/).filter(l => l.trim().length > 0);
-    if (lines.length < 5) {
-      throw new Error(`CSV 數據筆數過少（僅 ${lines.length} 行），至少需 5 筆以上有效數據！`);
-    }
-
-    // Auto-detect delimiter: semicolon, tab, or comma
-    let delimiter = ',';
-    const firstLine = lines[0];
-    if (firstLine.includes(';') && firstLine.split(';').length > firstLine.split(',').length) {
-      delimiter = ';';
-    } else if (firstLine.includes('\t') && firstLine.split('\t').length > firstLine.split(',').length) {
-      delimiter = '\t';
-    }
-
-    let matrix = [];
-    if (window.Papa) {
-      const pRes = Papa.parse(rawText, {
-        header: false,
-        dynamicTyping: false,
-        skipEmptyLines: 'greedy',
-        delimiter: delimiter
+    // 拖曳上傳支援
+    if (el.customCsvPanel) {
+      el.customCsvPanel.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
       });
-      matrix = (pRes.data || []).filter(row => row && row.length > 1);
-    } else {
-      matrix = lines.map(line => line.split(delimiter).map(v => v.trim().replace(/^["']|["']$/g, '')));
-    }
-
-    if (matrix.length < 5) {
-      throw new Error(`CSV 有效數據筆數過少（僅 ${matrix.length} 列）！`);
-    }
-
-    // Smart Header Detection: check if row 0 is purely numeric (like jbrownlee/housing.csv)
-    const row0 = matrix[0];
-    let numCountInRow0 = 0;
-    row0.forEach(val => {
-      const cleaned = String(val).trim().replace(/,/g, '');
-      const n = parseFloat(cleaned);
-      if (!isNaN(n) && isFinite(cleaned)) numCountInRow0++;
-    });
-
-    const isHeaderless = (numCountInRow0 / row0.length) >= 0.7;
-    let headers = [];
-    let dataRows = [];
-
-    if (isHeaderless) {
-      // Auto-assign column names
-      const colCount = row0.length;
-      if (colCount === 14) {
-        // Classic Boston Housing schema
-        headers = ['crim', 'zn', 'indus', 'chas', 'nox', 'rm', 'age', 'dis', 'rad', 'tax', 'ptratio', 'b', 'lstat', 'medv'];
-      } else {
-        headers = [];
-        for (let c = 0; c < colCount; c++) {
-          headers.push(c === colCount - 1 ? 'Target_Y' : `Feature_${c + 1}`);
-        }
-      }
-      dataRows = matrix; // Keep row 0 as valid data row!
-    } else {
-      // Row 0 is column headers
-      headers = row0.map((h, i) => String(h).trim().replace(/^["']|["']$/g, '') || `Col_${i + 1}`);
-      dataRows = matrix.slice(1);
-    }
-
-    // Convert into array of objects with typed numbers
-    const parsedRows = [];
-    dataRows.forEach(row => {
-      if (row.length < headers.length * 0.5) return;
-      const obj = {};
-      headers.forEach((h, idx) => {
-        const rawVal = row[idx];
-        if (rawVal === undefined || rawVal === null || rawVal === '') {
-          obj[h] = NaN;
-        } else {
-          const cleaned = String(rawVal).trim().replace(/,/g, '');
-          const num = parseFloat(cleaned);
-          obj[h] = (!isNaN(num) && isFinite(cleaned)) ? num : String(rawVal).trim();
+      el.customCsvPanel.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (file) {
+          loadCustomCsvFromFile(file);
         }
       });
-      parsedRows.push(obj);
-    });
+    }
 
-    return { headers, parsedRows, isHeaderless };
-  }
-
-  /**
-   * Load CSV from Public URL
-   */
-  async function loadCustomCsvFromUrl(csvUrl, targetColHint) {
-    showCustomCsvStatus('正在下載並解析 CSV 檔案...', 'loading');
-    try {
-      const rawText = await fetchCsvWithMultiProxy(csvUrl);
-      const datasetName = csvUrl.split('/').pop().replace(/\.csv$/i, '') || 'Custom Dataset';
-      processCsvTextAndBuildModel(rawText, datasetName, targetColHint);
-    } catch (err) {
-      console.error('Custom CSV URL Error:', err);
-      showCustomCsvStatus(`載入失敗: ${err.message}`, 'error');
+    // 步驟 2：開始分析按鈕
+    if (el.btnRunCustomAnalysis) {
+      el.btnRunCustomAnalysis.addEventListener('click', () => {
+        const target = el.customTargetSelect ? el.customTargetSelect.value : '';
+        if (!target) {
+          showCustomCsvStatus('請選擇要預測的目標欄位 (y)！', 'error');
+          return;
+        }
+        runCustomAnalysis(target);
+      });
     }
   }
 
-  /**
-   * Load CSV from Local File Upload (FileReader)
-   */
   function loadCustomCsvFromFile(file) {
-    showCustomCsvStatus(`正在讀取本機檔案: ${file.name} ...`, 'loading');
+    if (!file.name.match(/\.(csv|txt|tsv)$/i)) {
+      showCustomCsvStatus('檔案格式不支援！請選擇 .csv、.tsv 或 .txt 文字檔。', 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showCustomCsvStatus('檔案大小超過 10 MB 上限！請減少筆數後再試。', 'error');
+      return;
+    }
+    showCustomCsvStatus(`讀取本機檔案 ${file.name} 中…`, 'loading');
     const reader = new FileReader();
     reader.onload = (e) => {
-      try {
-        const rawText = e.target.result;
-        const datasetName = file.name.replace(/\.csv$/i, '') || 'Local CSV';
-        processCsvTextAndBuildModel(rawText, datasetName);
-      } catch (err) {
-        console.error('Local CSV Error:', err);
-        showCustomCsvStatus(`載入失敗: ${err.message}`, 'error');
-      }
+      const bytes = new Uint8Array(e.target.result);
+      inspectCustomCsv(bytes, file.name);
     };
     reader.onerror = () => {
-      showCustomCsvStatus('讀取本機檔案時發生錯誤！', 'error');
+      showCustomCsvStatus('本機檔案讀取失敗！請確認權限或重新選擇。', 'error');
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
+  }
+
+  async function loadCustomCsvFromUrl(url, targetHint = null) {
+    showCustomCsvStatus(`正在下載 ${url.split('/').pop() || url} …`, 'loading');
+    if (el.customCsvSetup) el.customCsvSetup.style.display = 'none';
+
+    try {
+      let bytes = null;
+      let filename = url.split('/').pop().split('?')[0] || 'dataset.csv';
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          bytes = new Uint8Array(buf);
+        }
+      } catch (err) {
+        // Fallback: CORS proxy
+        const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(url);
+        const pRes = await fetch(proxyUrl);
+        if (pRes.ok) {
+          const buf = await pRes.arrayBuffer();
+          bytes = new Uint8Array(buf);
+        }
+      }
+
+      if (!bytes || bytes.length === 0) {
+        throw new Error('無法取得 CSV 內容（可能網址無效或被來源伺服器封鎖跨網域存取）');
+      }
+
+      await inspectCustomCsv(bytes, filename, targetHint);
+      if (targetHint && el.customTargetSelect) {
+        const hasOption = Array.from(el.customTargetSelect.options).some(o => o.value.toLowerCase() === targetHint.toLowerCase());
+        if (hasOption) {
+          el.customTargetSelect.value = targetHint;
+          runCustomAnalysis(targetHint);
+        }
+      }
+    } catch (err) {
+      showCustomCsvStatus(err.message || '載入失敗', 'error');
+    }
   }
 
   /**
-   * Unified Pipeline: Parse CSV text and build ML regression model
+   * 第 1 步：Python 檢查欄位結構 (inspect)
    */
-  function processCsvTextAndBuildModel(rawText, datasetName, targetColHint) {
-    showCustomCsvStatus('正在進行特徵工程與機器學習多元迴歸訓練...', 'loading');
+  async function inspectCustomCsv(bytes, filename, targetHint = null) {
+    if (el.customCsvSetup) el.customCsvSetup.style.display = 'none';
+    showCustomCsvStatus('Python 正在解析欄位型別、缺失值與編碼…', 'loading');
 
-    const parsedData = parseAndStructureCsv(rawText);
-    const processedConfig = processCustomDataset(parsedData, datasetName, targetColHint);
-    window.DATASETS_CONFIG['custom'] = processedConfig;
+    try {
+      const jsonStr = await PyEngine.call('inspect', { bytes, filename }, (msg) => {
+        showCustomCsvStatus(escapeHtml(msg), 'loading');
+      });
+      const info = JSON.parse(jsonStr);
+      customCsvState = { bytes, filename, info };
 
-    const hintMsg = parsedData.isHeaderless ? '（已自動偵測為無標題 CSV 並補齊欄位名稱）' : '';
-    showCustomCsvStatus(`成功載入！共 ${processedConfig.recordCount} 筆數據，目標欄位：${processedConfig.target} ${hintMsg}`, 'success');
+      // 摘要
+      if (el.customCsvSummary) {
+        el.customCsvSummary.innerHTML = `
+          <strong>${escapeHtml(filename)}</strong> · 共 <strong>${info.n_rows.toLocaleString()}</strong> 列，
+          偵測到 <strong>${info.columns.length}</strong> 個欄位（${escapeHtml(info.encoding)} 編碼，分隔符號：${escapeHtml(info.delimiter_name)}）
+        `;
+      }
 
-    setActiveDatasetCard('custom');
-    applyDataset('custom');
+      // 目標下拉選單 (只列出數值型)
+      const numCols = info.columns.filter(c => c.role === 'numeric');
+      if (numCols.length === 0) {
+        throw new Error('此 CSV 沒有找到任何數值欄位，無法進行線性迴歸分析！');
+      }
+
+      if (el.customTargetSelect) {
+        el.customTargetSelect.innerHTML = numCols.map(c => `
+          <option value="${escapeHtml(c.name)}">${escapeHtml(c.name)} (缺失: ${c.missing} 筆)</option>
+        `).join('');
+
+        const defaultTarget = targetHint || info.suggested_target || numCols[numCols.length - 1].name;
+        el.customTargetSelect.value = defaultTarget;
+      }
+
+      // 欄位晶片
+      if (el.customColumnChips) {
+        const roleClass = { numeric: 'num', categorical: 'cat', id: 'skip', constant: 'skip', text: 'skip', empty: 'skip' };
+        el.customColumnChips.innerHTML = info.columns.map(c => `
+          <span class="col-chip ${roleClass[c.role] || 'skip'}" title="${escapeHtml(c.role_label)}｜缺失 ${c.missing} 筆｜${c.unique} 種值">
+            ${escapeHtml(c.name)} <em>${escapeHtml(c.role_label)}</em>
+          </span>
+        `).join('');
+      }
+
+      // 警告
+      if (el.customSetupWarnings) {
+        el.customSetupWarnings.innerHTML = (info.warnings || []).map(w => `
+          <li><i class="fa-solid fa-circle-info"></i> ${escapeHtml(w)}</li>
+        `).join('');
+      }
+
+      if (el.customCsvSetup) el.customCsvSetup.style.display = 'block';
+      showCustomCsvStatus('欄位讀取成功！請在步驟 2 確認目標欄位後點擊開始分析。', 'success');
+    } catch (err) {
+      const msg = (err && err.message) || String(err);
+      const hint = (err && err.hint) ? `<br><small style="color:var(--text-dim)">${escapeHtml(err.hint)}</small>` : '';
+      showCustomCsvStatus(msg + hint, 'error');
+    }
   }
 
   /**
-   * Client-Side ML Engine: Gauss-Jordan OLS & Forward Feature Selection
+   * 第 2 步：Python 完整分析 (analyze)
    */
-  function processCustomDataset(parsedData, datasetName, targetColHint) {
-    const { headers, parsedRows } = parsedData;
+  async function runCustomAnalysis(target) {
+    if (!customCsvState) return;
+    const { bytes, filename } = customCsvState;
+    if (el.btnRunCustomAnalysis) el.btnRunCustomAnalysis.disabled = true;
+    showCustomCsvStatus(`Python 正在進行特徵選擇與模型訓練（目標：${escapeHtml(target)}）…`, 'loading');
 
-    // 1. Identify numerical columns
-    const initialNumCols = headers.filter(col => {
-      let validCount = 0;
-      const testLimit = Math.min(50, parsedRows.length);
-      for (let i = 0; i < testLimit; i++) {
-        if (typeof parsedRows[i][col] === 'number' && !isNaN(parsedRows[i][col])) validCount++;
-      }
-      return (validCount / testLimit) >= 0.6;
-    });
-
-    if (initialNumCols.length < 1) {
-      throw new Error('CSV 中找不到任何數值欄位，無法進行迴歸預測！');
-    }
-
-    // Determine target column
-    let target = targetColHint && initialNumCols.includes(targetColHint) ? targetColHint : initialNumCols[initialNumCols.length - 1];
-
-    // 2. Automated Categorical Encoding (Model B Two-Dummies Template)
-    const nonNumCols = headers.filter(col => col !== target && !initialNumCols.includes(col));
-    const dummyFeatures = [];
-    const augmentedRows = parsedRows.map(r => ({ ...r }));
-
-    nonNumCols.forEach(catCol => {
-      const freqMap = {};
-      parsedRows.forEach(r => {
-        const val = String(r[catCol] || '').trim();
-        if (val) freqMap[val] = (freqMap[val] || 0) + 1;
+    try {
+      const jsonStr = await PyEngine.call('analyze', { bytes, filename, target }, (msg) => {
+        showCustomCsvStatus(escapeHtml(msg), 'loading');
       });
-      const uniqueVals = Object.keys(freqMap);
-      if (uniqueVals.length >= 2 && uniqueVals.length <= 10) {
-        uniqueVals.sort((a, b) => freqMap[b] - freqMap[a]);
-        const baseline = uniqueVals[0]; // Baseline reference group (0, 0, ...)
-        for (let i = 1; i < uniqueVals.length; i++) {
-          const catVal = uniqueVals[i];
-          const dummyName = `${catCol}_${catVal}`;
-          dummyFeatures.push(dummyName);
-          augmentedRows.forEach(r => {
-            r[dummyName] = (String(r[catCol] || '').trim() === catVal) ? 1 : 0;
-          });
-        }
-      }
-    });
+      const cfg = JSON.parse(jsonStr);
+      window.DATASETS_CONFIG['custom'] = cfg;
 
-    const allCandidateFeatures = initialNumCols.filter(c => c !== target).concat(dummyFeatures);
-    if (allCandidateFeatures.length === 0) {
-      throw new Error('未偵測到任何可用於預測之數值或類別特徵！');
+      const info = cfg.engineInfo || {};
+      const recK = (cfg.recommendedK && cfg.recommendedK['Forward SFS']) || 1;
+      showCustomCsvStatus(
+        `分析完成！${cfg.recordCount.toLocaleString()} 筆資料，目標：${escapeHtml(cfg.target)}，` +
+        `候選特徵數：${(info.features || []).length} 個，奧坎剃刀 1-SE 推薦 K = ${recK}`,
+        'success'
+      );
+
+      applyDataset('custom');
+      setActiveDatasetCard('custom');
+
+      // 滾動到儀表板
+      const hud = document.getElementById('controlHud');
+      if (hud) hud.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) {
+      const msg = (err && err.message) || String(err);
+      const hint = (err && err.hint) ? `<br><small style="color:var(--text-dim)">${escapeHtml(err.hint)}</small>` : '';
+      showCustomCsvStatus(msg + hint, 'error');
+    } finally {
+      if (el.btnRunCustomAnalysis) el.btnRunCustomAnalysis.disabled = false;
     }
-
-    // 3. Clean valid rows
-    const cleanRecords = [];
-    augmentedRows.forEach((r, idx) => {
-      let ok = (typeof r[target] === 'number' && !isNaN(r[target]));
-      allCandidateFeatures.forEach(fc => {
-        if (typeof r[fc] !== 'number' || isNaN(r[fc])) ok = false;
-      });
-      if (ok) {
-        const record = { Index: idx + 1 };
-        record[target] = r[target];
-        headers.forEach(c => { record[c] = r[c]; });
-        dummyFeatures.forEach(df => { record[df] = r[df]; });
-        cleanRecords.push(record);
-      }
-    });
-
-    const N = cleanRecords.length;
-    if (N < 5) {
-      throw new Error(`有效數據筆數過少（清洗後僅剩 ${N} 筆有效數值數據）！`);
-    }
-
-    const yArr = cleanRecords.map(r => r[target]);
-    const yMean = yArr.reduce((a, b) => a + b, 0) / N;
-
-    // 4. Feature Screening: If > 10 features, rank by correlation and keep Top 10 (Occam's Razor)
-    let candidateFeatures = [...allCandidateFeatures];
-    if (candidateFeatures.length > 10) {
-      const featScores = candidateFeatures.map(f => {
-        const xArr = cleanRecords.map(r => r[f]);
-        const xMean = xArr.reduce((a, b) => a + b, 0) / N;
-        let num = 0, denX = 0, denY = 0;
-        for (let i = 0; i < N; i++) {
-          const dx = xArr[i] - xMean;
-          const dy = yArr[i] - yMean;
-          num += dx * dy;
-          denX += dx * dx;
-          denY += dy * dy;
-        }
-        const r = (denX > 0 && denY > 0) ? Math.abs(num / Math.sqrt(denX * denY)) : 0;
-        return { feature: f, score: r };
-      });
-      featScores.sort((a, b) => b.score - a.score);
-      candidateFeatures = featScores.slice(0, 10).map(item => item.feature);
-    }
-
-    const featureCols = candidateFeatures;
-
-    // OLS solver
-    function solveOLS(feats) {
-      const k = feats.length;
-      // Build X with intercept column
-      const X = cleanRecords.map(r => [1, ...feats.map(f => r[f])]);
-      const XtX = Array(k + 1).fill(0).map(() => Array(k + 1).fill(0));
-      const Xty = Array(k + 1).fill(0);
-
-      for (let i = 0; i < N; i++) {
-        const xi = X[i];
-        const yi = yArr[i];
-        for (let r = 0; r <= k; r++) {
-          Xty[r] += xi[r] * yi;
-          for (let c = 0; c <= k; c++) {
-            XtX[r][c] += xi[r] * xi[c];
-          }
-        }
-      }
-
-      // Regularize diagonal slightly to ensure non-singular invertibility
-      for (let r = 0; r <= k; r++) XtX[r][r] += 1e-6;
-
-      const invXtX = invertMatrix(XtX);
-      const beta = Array(k + 1).fill(0);
-      for (let r = 0; r <= k; r++) {
-        for (let c = 0; c <= k; c++) {
-          beta[r] += invXtX[r][c] * Xty[c];
-        }
-      }
-
-      // Predictions & Residuals
-      const yPred = [];
-      const residuals = [];
-      let sse = 0;
-      let sae = 0;
-      const yMean = yArr.reduce((a, b) => a + b, 0) / N;
-      let sst = 0;
-
-      for (let i = 0; i < N; i++) {
-        let yp = beta[0];
-        for (let j = 0; j < k; j++) yp += beta[j + 1] * cleanRecords[i][feats[j]];
-        yPred.push(yp);
-        const res = yArr[i] - yp;
-        residuals.push(res);
-        sse += res * res;
-        sae += Math.abs(res);
-        sst += (yArr[i] - yMean) * (yArr[i] - yMean);
-      }
-
-      const mse = sse / N;
-      const rmse = Math.sqrt(mse);
-      const mae = sae / N;
-      const r2 = sst > 0 ? Math.max(0, 1 - (sse / sst)) : 0;
-      const adjR2 = Math.max(0, 1 - (1 - r2) * (N - 1) / Math.max(1, N - k - 1));
-
-      // Std error & t-stats
-      const s_err = Math.sqrt(sse / Math.max(1, N - k - 1));
-      const stdErrors = Array(k + 1).fill(0);
-      const tStats = Array(k + 1).fill(0);
-      const pVals = Array(k + 1).fill(0);
-
-      for (let r = 0; r <= k; r++) {
-        stdErrors[r] = s_err * Math.sqrt(Math.max(0, invXtX[r][r]));
-        tStats[r] = stdErrors[r] > 0 ? beta[r] / stdErrors[r] : 0;
-        pVals[r] = 2 * (1 - normalCdf(Math.abs(tStats[r])));
-      }
-
-      const coefsList = [{
-        feature: 'Intercept (β₀)',
-        coef: beta[0],
-        stderr: stdErrors[0],
-        tstat: tStats[0],
-        pvalue: pVals[0],
-        ci_lower: beta[0] - 1.96 * stdErrors[0],
-        ci_upper: beta[0] + 1.96 * stdErrors[0],
-        vif: null
-      }];
-
-      feats.forEach((f, idx) => {
-        coefsList.push({
-          feature: f,
-          coef: beta[idx + 1],
-          stderr: stdErrors[idx + 1],
-          tstat: tStats[idx + 1],
-          pvalue: pVals[idx + 1],
-          ci_lower: beta[idx + 1] - 1.96 * stdErrors[idx + 1],
-          ci_upper: beta[idx + 1] + 1.96 * stdErrors[idx + 1],
-          vif: 1.0 + Math.min(4.0, (k - 1) * 0.4)
-        });
-      });
-
-      // Top 10 Outliers
-      const outlierPairs = residuals.map((res, i) => ({
-        index: cleanRecords[i].Index || i,
-        actual: yArr[i],
-        predicted: yPred[i],
-        residual: res,
-        abs_error: Math.abs(res),
-        pct_error: Math.abs(res) / Math.max(1e-4, Math.abs(yArr[i])) * 100
-      }));
-      outlierPairs.sort((a, b) => b.abs_error - a.abs_error);
-      const outliers = outlierPairs.slice(0, 10).map((o, rank) => ({ ...o, rank: rank + 1 }));
-
-      const all_points = cleanRecords.map((r, i) => ({
-        index: r.Index || i,
-        state: `Sample #${r.Index || i}`,
-        actual: yArr[i],
-        predicted: Math.round(yPred[i] * 100) / 100,
-        residual: Math.round(residuals[i] * 100) / 100
-      }));
-
-      const f_stat = (sst - sse) / Math.max(1, k) / Math.max(1e-6, sse / Math.max(1, N - k - 1));
-
-      return {
-        rmse, mae, r2, adj_r2,
-        f_stat, f_pvalue: 0.0001,
-        coefficients: coefsList,
-        outliers,
-        all_points
-      };
-    }
-
-    // Forward Stepwise Feature Selection (K=1 to maxK <= 10)
-    const maxK = featureCols.length;
-    const forwardSteps = [];
-    const selected = [];
-    const remaining = [...featureCols];
-
-    for (let step = 1; step <= maxK; step++) {
-      let bestF = null;
-      let bestRmse = 9e9;
-      for (const cand of remaining) {
-        const testFeats = [...selected, cand];
-        const res = solveOLS(testFeats);
-        if (res.rmse < bestRmse) {
-          bestRmse = res.rmse;
-          bestF = cand;
-        }
-      }
-      if (bestF) {
-        selected.push(bestF);
-        remaining.splice(remaining.indexOf(bestF), 1);
-        const stepData = solveOLS(selected);
-        stepData.k = step;
-        stepData.features = [...selected];
-        forwardSteps.push(stepData);
-      }
-    }
-
-    // Generate models for all 5 algorithms using feature orders
-    const algorithms = {
-      'Forward SFS': forwardSteps,
-      'Lasso': forwardSteps,
-      'RFE': forwardSteps,
-      'ElasticNet': forwardSteps,
-      'Exhaustive': forwardSteps
-    };
-
-    // Sliders for Simulator
-    const topFeats = selected.slice(0, 4);
-    const sliders = topFeats.map((f, i) => {
-      const vals = cleanRecords.map(r => r[f]);
-      const minV = Math.min(...vals);
-      const maxV = Math.max(...vals);
-      const avgV = vals.reduce((a, b) => a + b, 0) / N;
-      const stepV = (maxV - minV) > 100 ? 5 : (maxV - minV) / 50;
-      const icons = ['fa-flask', 'fa-chart-pie', 'fa-gauge-high', 'fa-wave-square'];
-      const colors = ['var(--cyan-neon)', 'var(--indigo-neon)', 'var(--amber-neon)', 'var(--emerald-neon)'];
-      return {
-        id: `slider_custom_${i}`,
-        field: f,
-        label: `${f} (特徵參數)`,
-        min: Math.floor(minV * 0.9),
-        max: Math.ceil(maxV * 1.1),
-        step: Math.round(stepV * 100) / 100,
-        default: Math.round(avgV * 100) / 100,
-        icon: icons[i % icons.length],
-        color: colors[i % colors.length]
-      };
-    });
-
-    const finalName = datasetName || 'Custom Dataset';
-
-    return {
-      id: 'custom',
-      name: finalName,
-      fullName: `${finalName} Multiple Linear Regression Explorer`,
-      badge: 'Custom CSV Edition',
-      target: target,
-      targetLabel: `${target} (預測目標)`,
-      targetUnit: '',
-      isCurrency: false,
-      description: `自訂資料集「${finalName}」(${N} 筆有效紀錄)。依據動態輸入數據，系統透過前向選擇與多變數線性迴歸，探索 ${featureCols.join(', ')} 對目標變數 ${target} 的邊際影響。`,
-      tags: [
-        `<i class="fa-solid fa-database"></i> ${N} 筆自訂樣本`,
-        `<i class="fa-solid fa-bullseye"></i> 目標欄位: ${target}`,
-        `<i class="fa-solid fa-filter"></i> 納入 ${featureCols.length} 個數值特徵`,
-        `<i class="fa-solid fa-bolt"></i> 即時矩陣運算`
-      ],
-      recordCount: N,
-      records: cleanRecords,
-      models: algorithms,
-      simulator: {
-        type: 'custom',
-        sliders: sliders,
-        presets: [
-          { name: '📊 平均值基準', values: topFeats.map(f => cleanRecords.reduce((a, b) => a + b[f], 0) / N) }
-        ]
-      }
-    };
-  }
-
-  // Matrix Inversion via Gauss-Jordan Elimination
-  function invertMatrix(M) {
-    const n = M.length;
-    const A = M.map((row, i) => [...row, ...Array(n).fill(0).map((_, j) => (i === j ? 1 : 0))]);
-    for (let i = 0; i < n; i++) {
-      let maxRow = i;
-      for (let k = i + 1; k < n; k++) {
-        if (Math.abs(A[k][i]) > Math.abs(A[maxRow][i])) maxRow = k;
-      }
-      [A[i], A[maxRow]] = [A[maxRow], A[i]];
-      const pivot = A[i][i];
-      if (Math.abs(pivot) < 1e-12) return M.map((_, r) => Array(n).fill(0).map((__, c) => r === c ? 1 : 0));
-      for (let j = 0; j < 2 * n; j++) A[i][j] /= pivot;
-      for (let k = 0; k < n; k++) {
-        if (k !== i) {
-          const factor = A[k][i];
-          for (let j = 0; j < 2 * n; j++) A[k][j] -= factor * A[i][j];
-        }
-      }
-    }
-    return A.map(row => row.slice(n));
-  }
-
-  function normalCdf(x) {
-    const t = 1 / (1 + 0.2316419 * Math.abs(x));
-    const d = 0.3989423 * Math.exp(-x * x / 2);
-    const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
-    return x >= 0 ? 1 - p : p;
   }
 
   /**
@@ -1038,11 +790,12 @@
     if (!cfg) return;
 
     // 1. Update Header & Hero Elements
-    el.brandTitle.textContent = cfg.fullName;
+    const displayTitle = (dsKey === 'custom') ? '多元線性回歸' : cfg.fullName;
+    el.brandTitle.textContent = displayTitle;
     el.brandBadge.textContent = cfg.badge;
-    el.heroTitle.innerHTML = `<i class="fa-solid fa-microchip" style="color:var(--cyan-neon)"></i> ${cfg.fullName}`;
+    el.heroTitle.innerHTML = `<i class="fa-solid fa-microchip" style="color:var(--cyan-neon)"></i> ${displayTitle}`;
     el.heroDesc.textContent = cfg.description;
-    el.heroTags.innerHTML = cfg.tags.map(t => `<span class="hero-tag">${t}</span>`).join('');
+    el.heroTags.innerHTML = (cfg.tags || []).map(t => `<span class="hero-tag">${t}</span>`).join('');
     el.btnOpenDatasetText.textContent = `瀏覽資料集 (${cfg.recordCount}筆)`;
     el.datasetModalTitle.textContent = `${cfg.name} 原始數據集 (${cfg.recordCount} 筆)`;
     el.datasetModalCount.textContent = `總計 ${cfg.recordCount} 筆紀錄`;
@@ -1060,7 +813,7 @@
 
     // 4. Reset Algorithm & Dynamic K-Selector
     currentAlgo = 'Forward SFS';
-    currentK = (dsKey === 'boston') ? 10 : (dsKey === 'startups') ? 1 : 1;
+    currentK = (dsKey === 'boston') ? 10 : (dsKey === 'startups') ? 1 : ((cfg.recommendedK && cfg.recommendedK['Forward SFS']) || 1);
     
     // Reset active buttons in UI
     el.algoTabs.querySelectorAll('.algo-tab-btn').forEach(btn => {
@@ -1109,13 +862,15 @@
       optK = 2; // K=2 is lowest RMSE sweet spot; K=1 is 1-SE choice
     } else if (cfg.id === 'boston') {
       optK = 10; // K=10 is the best Top-10 parsimony model
+    } else if (cfg.lowestCvK && cfg.lowestCvK[currentAlgo]) {
+      optK = cfg.lowestCvK[currentAlgo];
     }
 
     let html = '';
     algoModels.forEach(step => {
       const kVal = step.k;
       const isCurrent = (kVal === currentK);
-      const is1SE = (cfg.id === 'startups' && kVal === 1);
+      const is1SE = (cfg.id === 'startups' && kVal === 1) || (cfg.recommendedK && cfg.recommendedK[currentAlgo] === kVal);
       const isOptimal = (kVal === optK);
       const isFull = (kVal === maxK);
 
@@ -1132,7 +887,7 @@
         badgeText = ' (★ 1-SE 最簡推薦)';
       } else if (isOptimal) {
         iconHtml = '<i class="fa-solid fa-gem"></i>';
-        badgeText = (cfg.id === 'boston') ? ' (★ Top 10 最優解)' : ' (★ 最佳精簡推薦)';
+        badgeText = (cfg.id === 'boston') ? ' (★ Top 10 最優解)' : ' (◆ 最低 CV 誤差)';
       } else if (isFull && maxK >= 5 && !isOptimal) {
         iconHtml = '<i class="fa-solid fa-triangle-exclamation"></i>';
         badgeText = ` (K=${maxK} 全特徵)`;
@@ -1210,26 +965,52 @@
       `;
     }
 
+    // If Custom Dataset and has Categorical Features
+    if (sim.categoricals && sim.categoricals.length > 0) {
+      sim.categoricals.forEach(cat => {
+        const colName = cat.column || cat.label || 'Feature';
+        const catId = cat.id || `sim_cat_${colName.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+        const baseVal = cat.base || cat.baseline || (cat.levels && cat.levels[0] ? cat.levels[0].value : '');
+        const defaultVal = cat.default || baseVal;
+        const options = (cat.categories) ? cat.categories : (cat.levels ? cat.levels.map(lv => lv.value) : []);
+        html += `
+          <div class="slider-group" style="margin-bottom:10px">
+            <div class="slider-label-row">
+              <span class="slider-title">
+                <i class="fa-solid fa-tags" style="color:var(--cyan-neon)"></i>
+                ${escapeHtml(colName)} (類別特徵)
+              </span>
+            </div>
+            <select class="cyber-select sim-cat" id="${escapeHtml(catId)}" data-col="${escapeHtml(colName)}" data-base="${escapeHtml(baseVal)}" style="width:100%; margin-top:6px;">
+              ${options.map(c => `<option value="${escapeHtml(c)}" ${c === defaultVal ? 'selected' : ''}>${escapeHtml(c)}${c === baseVal ? ' (基準組)' : ''}</option>`).join('')}
+            </select>
+          </div>
+        `;
+      });
+    }
+
     // Presets Row
     html += `
       <div class="presets-row">
         <span style="font-size:12px; color:var(--text-dim); font-weight:600">快速情境預設：</span>
     `;
-    sim.presets.forEach(p => {
-      html += `<button class="preset-btn sim-preset-btn" data-preset='${JSON.stringify(p)}'>${p.name}</button>`;
+    (sim.presets || []).forEach(p => {
+      html += `<button class="preset-btn sim-preset-btn" data-preset='${JSON.stringify(p)}'>${escapeHtml(p.name)}</button>`;
     });
     html += `</div>`;
 
     el.simulatorControls.innerHTML = html;
 
     // Attach slider event listeners
-    sim.sliders.forEach(s => {
+    (sim.sliders || []).forEach(s => {
       const sliderEl = document.getElementById(s.id);
       const dispEl = document.getElementById(`disp_${s.id}`);
-      sliderEl.addEventListener('input', () => {
-        dispEl.textContent = currentDataset === 'startups' ? fmtCurrency(Number(sliderEl.value)) : Number(sliderEl.value).toFixed(1);
-        calculateLivePrediction();
-      });
+      if (sliderEl && dispEl) {
+        sliderEl.addEventListener('input', () => {
+          dispEl.textContent = currentDataset === 'startups' ? fmtCurrency(Number(sliderEl.value)) : Number(sliderEl.value).toFixed(1);
+          calculateLivePrediction();
+        });
+      }
     });
 
     // Attach state buttons listeners
@@ -1242,6 +1023,20 @@
           currentStartupState = btn.dataset.state;
           calculateLivePrediction();
         });
+      });
+    }
+
+    // Attach categorical select listeners
+    if (sim.categoricals && sim.categoricals.length > 0) {
+      sim.categoricals.forEach(cat => {
+        const colName = cat.column || cat.label || 'Feature';
+        const catId = cat.id || `sim_cat_${colName.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+        const catEl = document.getElementById(catId);
+        if (catEl) {
+          catEl.addEventListener('change', () => {
+            calculateLivePrediction();
+          });
+        }
       });
     }
 
@@ -1802,7 +1597,7 @@
       `;
     } else {
       // Custom Dataset
-      cfg.simulator.sliders.forEach(s => {
+      (cfg.simulator.sliders || []).forEach(s => {
         const sliderInput = document.getElementById(s.id);
         if (sliderInput) {
           const val = parseFloat(sliderInput.value);
@@ -1816,7 +1611,30 @@
         }
       });
 
-      el.liveProfitVal.textContent = Number(predicted).toFixed(2);
+      (cfg.simulator.categoricals || []).forEach(cat => {
+        const colName = cat.column || cat.label || 'Feature';
+        const catId = cat.id || `sim_cat_${colName.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+        const baseVal = cat.base || cat.baseline || (cat.levels && cat.levels[0] ? cat.levels[0].value : '');
+        const sel = document.getElementById(catId);
+        if (sel) {
+          const chosen = sel.value;
+          if (chosen === baseVal) {
+            contributions.push({ name: `${colName}: ${chosen} (基準組)`, val: 0, active: true, type: 'base' });
+          } else {
+            const dummyCol = `${colName}_${chosen}`;
+            if (coefMap[dummyCol] !== undefined) {
+              const val = coefMap[dummyCol] * 1;
+              predicted += val;
+              contributions.push({ name: `${colName}: ${chosen}`, val: val, active: true, type: val >= 0 ? 'pos' : 'neg' });
+            } else {
+              contributions.push({ name: `${colName}: ${chosen}`, val: 0, active: false, note: '未納入模型' });
+            }
+          }
+        }
+      });
+
+      const isLarge = Math.abs(predicted) > 1000;
+      el.liveProfitVal.textContent = isLarge ? fmtNumber(predicted, 1) : fmtNumber(predicted, 2);
       el.profitComparison.innerHTML = `基於當前選取之 ${currentK} 個特徵與輸入參數即時估計值`;
     }
 

@@ -1,15 +1,19 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Multiple Linear Regression & Feature Selection Explorer (AIoT Cyber Edition)</title>
-  <meta name="description" content="AIoT 多元線性迴歸與五大特徵選擇互動式探索平台。支援 50 Startups、Boston Housing 及自訂 CSV 網址切換、即時統計檢定、預估模擬器與 Top 10 離群值診斷。">
+  <meta name="description"
+    content="AIoT 多元線性迴歸與五大特徵選擇互動式探索平台。支援 50 Startups、Boston Housing 及任意自訂 CSV（瀏覽器內 Python 分析）、即時統計檢定、預估模擬器與 Top 10 離群值診斷。">
 
   <!-- Google Fonts: Outfit, Inter, Fira Code -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800;900&display=swap"
+    rel="stylesheet">
 
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -17,12 +21,10 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-  <!-- PapaParse CDN for robust CSV parsing -->
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-
   <!-- Cyber Design Stylesheet -->
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
   <div class="app-container">
@@ -52,7 +54,8 @@
           <i class="fa-solid fa-table-list"></i>
           <span id="btnOpenDatasetText">瀏覽資料集 (50筆)</span>
         </button>
-        <a href="https://github.com/yui000130/AIoT-L6-DIC2-MultipleLR" target="_blank" rel="noopener noreferrer" class="github-link-btn">
+        <a href="https://github.com/yui000130/AIoT-L6-DIC2-MultipleLR" target="_blank" rel="noopener noreferrer"
+          class="github-link-btn">
           <i class="fa-brands fa-github"></i>
           <span>GitHub</span>
         </a>
@@ -66,7 +69,7 @@
           <i class="fa-solid fa-layer-group" style="color:var(--cyan-neon); font-size:17px"></i>
           <span>資料集切換中心 (Active Dataset Selection)</span>
         </div>
-        <span class="hub-tip">選擇內建基準資料集，或貼上外部公開 CSV 直連網址進行即時機器學習訓練與視覺化</span>
+        <span class="hub-tip">選擇內建基準資料集，或上傳任意 CSV，由瀏覽器內的 Python (scikit-learn) 即時分析</span>
       </div>
 
       <div class="dataset-cards-grid">
@@ -92,41 +95,101 @@
 
         <!-- Card 3: Custom CSV URL -->
         <div class="ds-card custom" data-dataset="custom" id="cardDsCustom">
-          <div class="ds-icon"><i class="fa-solid fa-link"></i></div>
+          <div class="ds-icon"><i class="fa-solid fa-file-csv"></i></div>
           <div class="ds-info">
-            <h4>其他：自訂 CSV 網址</h4>
-            <p>貼上公開 CSV 直連網址 · 即時解析訓練</p>
+            <h4>其他：自訂資料集（多元線性回歸）</h4>
+            <p>任意 CSV · 多元線性回歸分析</p>
           </div>
-          <span class="ds-badge custom">動態擴充</span>
+          <span class="ds-badge custom">Python</span>
         </div>
       </div>
 
-      <!-- Expandable Custom CSV Input Panel -->
+      <!-- Expandable Custom CSV Input Panel：左邊上傳與設定、右邊 CSV 格式說明 -->
       <div class="custom-csv-panel" id="customCsvPanel" style="display:none">
-        <div class="csv-input-row">
-          <div class="input-wrapper">
-            <i class="fa-solid fa-globe input-icon"></i>
-            <input type="url" id="customCsvUrlInput" placeholder="請貼上公開 CSV 直連網址 (例如: https://.../housing.csv 或任何公開 CSV)">
+        <div class="custom-csv-layout">
+          <div class="custom-csv-main">
+            <div class="csv-panel-head">
+              <span class="csv-step-title"><i class="fa-solid fa-upload"></i> 步驟 1：選擇 CSV 檔案</span>
+              <span class="py-engine-badge idle" id="pyEngineBadge"><i class="fa-brands fa-python"></i> Python
+                引擎：尚未載入</span>
+            </div>
+
+            <div class="csv-input-row">
+              <input type="file" id="customCsvFileInput" accept=".csv,.txt,.tsv,text/csv" style="display:none">
+              <button id="btnUploadCsvFile" class="cyber-action-btn" type="button"
+                title="選擇電腦中的 CSV 檔案（也可以直接把檔案拖曳到這個區塊）">
+                <i class="fa-solid fa-file-arrow-up"></i> 本機 CSV 上傳
+              </button>
+              <span class="csv-or">或</span>
+              <div class="input-wrapper">
+                <i class="fa-solid fa-globe input-icon"></i>
+                <input type="url" id="customCsvUrlInput" placeholder="貼上公開 CSV 直連網址（GitHub 請用 Raw 網址）">
+              </div>
+              <button id="btnLoadCustomCsv" class="cyber-action-btn secondary" type="button">
+                <i class="fa-solid fa-bolt"></i> 從網址載入
+              </button>
+            </div>
+            <p class="csv-drop-hint"><i class="fa-solid fa-hand-pointer"></i> 也可以直接把 CSV 檔案拖曳到這個區塊</p>
+
+            <div class="csv-presets-row">
+              <span class="presets-label">一鍵快速測試：</span>
+              <button class="mini-preset-btn"
+                data-url="https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv"
+                data-target="medv">Boston Housing (.csv)</button>
+              <button class="mini-preset-btn"
+                data-url="https://raw.githubusercontent.com/jbrownlee/Datasets/master/housing.csv"
+                data-target="medv">Housing (無標題版, jbrownlee)</button>
+            </div>
+
+            <!-- 載入狀態：成功 / 進度 / 失敗原因 + 建議 -->
+            <div id="customCsvStatus" class="custom-status-msg" style="display:none"></div>
+
+            <!-- 步驟 2：Python 檢查完欄位後，讓使用者確認目標欄位 -->
+            <div class="csv-setup" id="customCsvSetup" style="display:none">
+              <span class="csv-step-title"><i class="fa-solid fa-bullseye"></i> 步驟 2：確認目標欄位 (y)</span>
+              <div class="csv-summary" id="customCsvSummary"></div>
+              <div class="csv-target-row">
+                <label for="customTargetSelect">要預測的欄位：</label>
+                <select id="customTargetSelect" class="cyber-select"></select>
+                <button id="btnRunCustomAnalysis" class="cyber-action-btn" type="button">
+                  <i class="fa-solid fa-play"></i> 開始分析
+                </button>
+              </div>
+              <div class="csv-columns-title">欄位判定結果（藍 = 數值特徵、紫 = 類別特徵、灰 = 略過）：</div>
+              <div class="col-chips" id="customColumnChips"></div>
+              <ul class="csv-warnings" id="customSetupWarnings"></ul>
+            </div>
           </div>
-          <button id="btnLoadCustomCsv" class="cyber-action-btn" type="button">
-            <i class="fa-solid fa-bolt"></i> 載入並重構模型
-          </button>
-          
-          <input type="file" id="customCsvFileInput" accept=".csv,text/csv" style="display:none">
-          <button id="btnUploadCsvFile" class="cyber-action-btn secondary" type="button" title="直接上傳電腦中的 CSV 檔案，100% 免受網路連線與 CORS 跨域限制！">
-            <i class="fa-solid fa-file-arrow-up"></i> 本機 CSV 上傳
-          </button>
-        </div>
 
-        <div class="csv-presets-row">
-          <span class="presets-label">一鍵快速測試：</span>
-          <button class="mini-preset-btn" data-url="https://raw.githubusercontent.com/selva86/datasets/master/BostonHousing.csv" data-target="medv">Boston Housing (.csv)</button>
-          <button class="mini-preset-btn" data-url="https://raw.githubusercontent.com/Avik-Jain/100-Days-Of-ML-Code/master/datasets/50_Startups.csv" data-target="Profit">50 Startups (.csv)</button>
-          <button class="mini-preset-btn" data-url="https://raw.githubusercontent.com/stedy/Machine-Learning-with-R-datasets/master/insurance.csv" data-target="charges">Medical Insurance (.csv)</button>
-          <button class="mini-preset-btn" data-url="https://raw.githubusercontent.com/jbrownlee/Datasets/master/housing.csv" data-target="medv">Housing (無標題版, jbrownlee)</button>
+          <!-- 附註：怎樣的 CSV 可以分析 -->
+          <aside class="csv-notes">
+            <h5><i class="fa-solid fa-circle-info"></i> 可以分析的 CSV 格式</h5>
+            <ul class="notes-ok">
+              <li><b>檔案</b><span>.csv / .txt / .tsv 純文字表格，10 MB 以內</span></li>
+              <li><b>分隔符號</b><span>逗號、分號、Tab 都可以（自動判斷）</span></li>
+              <li><b>編碼</b><span>UTF-8 或 Big5（Excel 存的中文 CSV 也可以）</span></li>
+              <li><b>標題列</b><span>第一列是欄位名稱；沒有標題列也可以，會自動命名</span></li>
+              <li><b>目標 (y)</b><span>至少 1 個<b>數值</b>欄位，可自行選擇要預測哪一欄</span></li>
+              <li><b>特徵 (x)</b><span>數值或類別都可以；類別欄（≤ 15 種值）會自動做 dummy 編碼，最常見的類別當基準組</span></li>
+              <li><b>筆數</b><span>至少 10 筆，建議 30 筆以上；超過 5,000 筆會隨機抽樣</span></li>
+            </ul>
+            <h5><i class="fa-solid fa-wand-magic-sparkles"></i> 自動處理</h5>
+            <ul class="notes-auto">
+              <li>千分位逗號、$、% 會自動去除，例如 "1,234"、"$50"、"12%"</li>
+              <li>數值缺失補中位數、類別缺失補最常見值；目標缺失的列會刪除</li>
+              <li>ID 欄、常數欄、空白欄、種類太多的文字欄（如姓名）會略過</li>
+              <li>特徵超過 10 個時，保留和目標相關性最高的 10 個</li>
+            </ul>
+            <h5><i class="fa-solid fa-ban"></i> 無法分析</h5>
+            <ul class="notes-no">
+              <li>Excel 檔（.xlsx）：請先「另存新檔 → CSV」</li>
+              <li>目標欄位是文字（例如「是 / 否」）：屬於分類問題，不適用線性迴歸</li>
+              <li>只有一個欄位、或除了目標以外沒有可用特徵</li>
+            </ul>
+            <p class="notes-foot"><i class="fa-solid fa-lock"></i> 資料只在你的瀏覽器裡分析，不會上傳到任何伺服器。第一次使用需下載 Python 環境（約 10–20
+              秒）。</p>
+          </aside>
         </div>
-
-        <div id="customCsvStatus" class="custom-status-msg" style="display:none"></div>
       </div>
     </section>
 
@@ -137,7 +200,9 @@
         50 Startups Multiple Linear Regression Explorer
       </h2>
       <p id="heroDesc">
-        依據 CRISP-DM 流程，透過五大熱門特徵選擇演算法（Forward SFS 前向選擇、Lasso L1 正則化、RFE 遞迴特徵消除、ElasticNet、Exhaustive 窮舉）探索研發、行政、行銷支出及州別（Two Dummies 編碼：California 基準組）對公司利潤的最佳預測組合，並以 1-SE 法則（One Standard Error Rule）在精簡性與準確度間取得最佳平衡。
+        依據 CRISP-DM 流程，透過五大熱門特徵選擇演算法（Forward SFS 前向選擇、Lasso L1 正則化、RFE 遞迴特徵消除、ElasticNet、Exhaustive
+        窮舉）探索研發、行政、行銷支出及州別（Two Dummies 編碼：California 基準組）對公司利潤的最佳預測組合，並以 1-SE 法則（One Standard Error
+        Rule）在精簡性與準確度間取得最佳平衡。
       </p>
       <div class="hero-tags" id="heroTags">
         <span class="hero-tag"><i class="fa-solid fa-atom"></i> 5-Fold Repeated CV (5×5 重複交叉驗證)</span>
@@ -184,7 +249,8 @@
       <div class="hud-section-label" style="margin-top:16px">
         <i class="fa-solid fa-cubes"></i>
         Step 2: 選擇特徵數量 K（模型複雜度階梯）
-        <span style="font-size:12px; color:var(--cyan-neon); font-weight:500; margin-left:8px; background:rgba(0,240,255,0.08); padding:2px 8px; border-radius:4px; border:1px solid rgba(0,240,255,0.25);">（最多選十個）</span>
+        <span
+          style="font-size:12px; color:var(--cyan-neon); font-weight:500; margin-left:8px; background:rgba(0,240,255,0.08); padding:2px 8px; border-radius:4px; border:1px solid rgba(0,240,255,0.25);">（最多選十個）</span>
       </div>
       <div class="k-selector-container" id="kSelectorGroup">
         <button class="k-btn parsimony active" data-k="1">
@@ -296,7 +362,9 @@
             RMSE Trajectory by Number of Features (K)
           </h3>
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span class="card-tag" id="rmseKValTag" style="color:var(--cyan-neon); border-color:rgba(0,240,255,0.3); background:rgba(0,240,255,0.08); font-weight:600;">K=1 基準</span>
+            <span class="card-tag" id="rmseKValTag"
+              style="color:var(--cyan-neon); border-color:rgba(0,240,255,0.3); background:rgba(0,240,255,0.08); font-weight:600;">K=1
+              基準</span>
             <span class="card-tag">Lower is Better</span>
           </div>
         </div>
@@ -313,7 +381,9 @@
             R² Fit Curve Across Algorithms (K)
           </h3>
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span class="card-tag" id="r2KValTag" style="color:var(--emerald-neon); border-color:rgba(0,255,170,0.3); background:rgba(0,255,170,0.08); font-weight:600;">K=1 基準</span>
+            <span class="card-tag" id="r2KValTag"
+              style="color:var(--emerald-neon); border-color:rgba(0,255,170,0.3); background:rgba(0,255,170,0.08); font-weight:600;">K=1
+              基準</span>
             <span class="card-tag">Higher is Better</span>
           </div>
         </div>
@@ -413,7 +483,9 @@
           </div>
 
           <div class="waterfall-breakdown">
-            <div style="font-size:11.5px; font-weight:700; text-transform:uppercase; color:var(--text-dim); margin-bottom:10px" id="waterfallHeader">
+            <div
+              style="font-size:11.5px; font-weight:700; text-transform:uppercase; color:var(--text-dim); margin-bottom:10px"
+              id="waterfallHeader">
               利潤貢獻來源拆解 (Contribution Waterfall)
             </div>
             <div id="waterfallList">
@@ -459,27 +531,33 @@
         AIoT DIC2: Multiple Linear Regression &amp; Feature Selection Explorer | Designed with Cyber Dark Glassmorphism
       </p>
       <p style="margin-top:6px">
-        GitHub Repository: <a href="https://github.com/yui000130/AIoT-L6-DIC2-MultipleLR" target="_blank" rel="noopener noreferrer">yui000130/AIoT-L6-DIC2-MultipleLR</a>
+        GitHub Repository: <a href="https://github.com/yui000130/AIoT-L6-DIC2-MultipleLR" target="_blank"
+          rel="noopener noreferrer">yui000130/AIoT-L6-DIC2-MultipleLR</a>
       </p>
     </footer>
 
   </div>
 
   <!-- Raw Dataset Modal Dialog -->
-  <div id="datasetModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:999; backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:20px;">
-    <div style="background:var(--bg-dark); border:1px solid var(--border-neon); border-radius:var(--radius-lg); width:100%; max-width:980px; max-height:85vh; display:flex; flex-direction:column; box-shadow:var(--shadow-cyber);">
-      <div style="padding:20px 24px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+  <div id="datasetModal"
+    style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:999; backdrop-filter:blur(8px); align-items:center; justify-content:center; padding:20px;">
+    <div
+      style="background:var(--bg-dark); border:1px solid var(--border-neon); border-radius:var(--radius-lg); width:100%; max-width:980px; max-height:85vh; display:flex; flex-direction:column; box-shadow:var(--shadow-cyber);">
+      <div
+        style="padding:20px 24px; border-bottom:1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
         <h3 style="color:#fff; font-size:18px; display:flex; align-items:center; gap:10px;">
           <i class="fa-solid fa-database" style="color:var(--cyan-neon)"></i>
           <span id="datasetModalTitle">50 Startups 原始數據集 (Raw Dataset Viewer)</span>
         </h3>
-        <button id="btnCloseDataset" style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">
+        <button id="btnCloseDataset"
+          style="background:none; border:none; color:var(--text-muted); font-size:20px; cursor:pointer;">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
 
       <div style="padding:16px 24px; border-bottom:1px solid var(--border-subtle);">
-        <input type="text" id="datasetSearch" placeholder="搜尋關鍵字或編號..." style="width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:10px 14px; color:#fff; font-size:13px; outline:none;">
+        <input type="text" id="datasetSearch" placeholder="搜尋關鍵字或編號..."
+          style="width:100%; background:rgba(255,255,255,0.05); border:1px solid var(--border-subtle); border-radius:var(--radius-sm); padding:10px 14px; color:#fff; font-size:13px; outline:none;">
       </div>
 
       <div style="overflow-y:auto; flex:1; padding:0 24px;">
@@ -495,7 +573,8 @@
 
       <div style="padding:16px 24px; border-top:1px solid var(--border-subtle); text-align:right;">
         <span id="datasetModalCount" style="font-size:12px; color:var(--text-dim); margin-right:16px">總計 50 筆紀錄</span>
-        <button onclick="document.getElementById('datasetModal').style.display='none'" class="preset-btn" style="padding:8px 16px;">
+        <button onclick="document.getElementById('datasetModal').style.display='none'" class="preset-btn"
+          style="padding:8px 16px;">
           關閉視窗
         </button>
       </div>
@@ -506,4 +585,5 @@
   <script src="model_data.js"></script>
   <script src="app.js"></script>
 </body>
+
 </html>
